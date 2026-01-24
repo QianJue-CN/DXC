@@ -1,16 +1,32 @@
-
-export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.0 Chinese Native)
+export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.1 Chinese Native)
 
 > 本文档定义了游戏状态树的**完整**结构。AI 在生成 \`tavern_commands\` 时必须**严格遵守**此路径和字段定义。
 > 所有的 Key 必须使用**中文**。禁止删除、精简或臆造字段。
 
-## 1. 全局环境 (gameState)
+## 1. 全局环境与元数据 (gameState)
+- \`gameState.当前界面\`: Screen ("HOME" | "CHAR_CREATION" | "GAME" | "SETTINGS")
+- \`gameState.游戏难度\`: Difficulty ("Easy" | "Normal" | "Hard" | "Hell")
+- \`gameState.处理中\`: Boolean
+- \`gameState.回合数\`: Number
 - \`gameState.游戏时间\`: String (格式 "第X日 HH:MM")
 - \`gameState.当前日期\`: String ("1000-01-01")
 - \`gameState.当前地点\`: String (中文地名，如 "欧拉丽南大街")
 - \`gameState.当前楼层\`: Number (0=地表, 1+=地下层数)
 - \`gameState.天气\`: String ("晴朗", "小雨" 等)
 - \`gameState.世界坐标\`: { "x": Number, "y": Number } (绝对坐标)
+- \`gameState.日志\`: Array<LogEntry> (只读, 由 \`logs\` 输出驱动)
+- \`gameState.historyArchive\`: Array<LogEntry> (可选, 历史归档)
+
+**LogEntry 结构**
+- \`id\`: String
+- \`text\`: String
+- \`sender\`: String
+- \`timestamp\`: Number
+- \`turnIndex?\`: Number
+- \`rawResponse?\`: String
+- \`snapshot?\`: String
+- \`isRaw?\`: Boolean
+- \`gameTime?\`: String ("第X日 HH:MM")
 
 ## 2. 玩家状态核心 (gameState.角色)
 **基础信息**
@@ -23,6 +39,8 @@ export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.0 
 - \`gameState.角色.背景\`: String
 - \`gameState.角色.性别\`: String ("男性" / "女性")
 - \`gameState.角色.年龄\`: Number
+- \`gameState.角色.生日\`: String ("MM-DD")
+- \`gameState.角色.头像\`: String (URL/Base64)
 
 **核心数值 (Vitals)**
 - \`gameState.角色.生命值\`: Number (当前 HP)
@@ -77,6 +95,7 @@ export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.0 
 - \`gameState.角色.装备.副手\`
 - \`gameState.角色.装备.头部\`
 - \`gameState.角色.装备.身体\`
+- \`gameState.角色.装备.手部\`
 - \`gameState.角色.装备.腿部\`
 - \`gameState.角色.装备.足部\`
 - \`gameState.角色.装备.饰品1\`
@@ -90,7 +109,7 @@ export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.0 
 - \`描述\`: String
 - \`数量\`: Number
 - \`类型\`: String ("consumable" | "weapon" | "armor" | "material" | "key_item" | "loot")
-- \`品质\`: String ("Common" | "Rare" | "Epic" | "Legendary" | "Broken")
+- \`品质\`: String ("Broken" | "Common" | "Rare" | "Epic" | "Legendary")
 - \`已装备\`: Boolean
 - \`装备槽位\`: String (可选, 如 "主手")
 - \`攻击力\`: Number (可选)
@@ -101,12 +120,21 @@ export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.0 
 - \`价值\`: Number (单价)
 - \`效果\`: String (特殊效果描述)
 - \`攻击特效\`: String
+- \`防御特效\`: String
 - \`附加属性\`: Array<{ "名称": String, "数值": String }>
+- \`重量\`: Number (可选)
+- \`等级需求\`: Number (可选)
 
-## 4. 社交系统 (gameState.社交)
+## 4. 战利品相关
+- \`gameState.战利品\`: Array<InventoryItem> (已归档战利品)
+- \`gameState.公共战利品\`: Array<InventoryItem> (探索中的临时战利品)
+- \`gameState.战利品背负者\`: String
+
+## 5. 社交系统 (gameState.社交)
 *Array<Confidant>*
 - \`id\`: String ("Char_...")
 - \`姓名\`: String
+- \`称号\`: String
 - \`种族\`: String
 - \`年龄\`: Number
 - \`性别\`: String
@@ -119,76 +147,109 @@ export const P_DATA_STRUCT = `# 【数据结构定义】DanMachi SaveData (V3.0 
 - \`是否队友\`: Boolean
 - \`已交换联系方式\`: Boolean
 - \`特别关注\`: Boolean
+- \`强制包含上下文\`: Boolean
 - \`当前行动\`: String (如 "正在擦拭酒杯")
 - \`位置详情\`: String
 - \`坐标\`: { "x": Number, "y": Number }
 - \`记忆\`: Array<{ "内容": String, "时间戳": String }>
 - \`简介\`, \`外貌\`, \`性格\`, \`背景\`: String
+- \`头像\`: String
+- \`排除提示词\`: Boolean
+- \`已知能力\`: String
 - **队友/敌对数据** (仅战斗相关NPC拥有):
   - \`生存数值\`: { "当前生命", "最大生命", "当前精神", "最大精神", "当前体力", "最大体力" }
-  - \`能力值\`: { "力量", "耐久"... }
-  - \`装备\`: { "主手"... }
-  - \`背包\`: []
+  - \`能力值\`: { "力量", "耐久", "灵巧", "敏捷", "魔力" }
+  - \`装备\`: { "主手", "副手", "身体", "头部", "腿部", "足部", "饰品" }
+  - \`背包\`: Array<InventoryItem>
 
-## 5. 战斗系统 (gameState.战斗)
+## 6. 战斗系统 (gameState.战斗)
 - \`gameState.战斗.是否战斗中\`: Boolean
-- \`gameState.战斗.敌方\`: {
-    "id": String,
-    "名称": String,
-    "生命值": Number, "最大生命值": Number,
-    "精神力": Number, "最大精神力": Number,
-    "攻击力": Number,
-    "等级": Number,
-    "描述": String,
-    "技能": String[]
-  } (若无敌人则为 null)
+- \`gameState.战斗.敌方\`: Array<敌对目标> | null
 - \`gameState.战斗.战斗记录\`: String[] (最近的战斗日志)
+- \`gameState.战斗.上一次行动\`: String (可选)
 
-## 6. 任务系统 (gameState.任务)
+**敌对目标结构 (Enemy Target)**
+- \`名称\`: String
+- \`最大生命值\`: Number
+- \`当前生命值\`: Number
+- \`攻击力\`: Number
+- \`最大精神MP\`: Number
+- \`当前精神MP\`: Number
+- \`技能\`: String[]
+- \`描述\`: String
+- \`等级\`: Number (可选)
+- \`图片\`: String (可选)
+
+## 7. 任务系统 (gameState.任务)
 *Array<Task>*
 - \`id\`: String ("Tsk_...")
 - \`标题\`: String
 - \`描述\`: String
 - \`状态\`: String ("active" | "completed" | "failed")
 - \`奖励\`: String
-- \`评级\`: String ("E"-"S")
+- \`评级\`: String ("E"-"SSS")
 - \`接取时间\`: String
 - \`结束时间\`: String
 - \`截止时间\`: String
 - \`日志\`: Array<{ "时间戳": String, "内容": String }>
 
-## 7. 手机系统
+## 8. 手机系统
 - \`gameState.短信\`: Array<{
-    "id": String, "发送者": String, "内容": String,
-    "频道": "private"|"group", "目标": String, "群组名称": String,
+    "id": String, "发送者": String, "目标": String,
+    "内容": String, "频道": "private"|"group"|"forum", "群组名称": String,
     "时间戳": String, "timestampValue": Number
   }>
 - \`gameState.动态\`: Array<{
-    "id": String, "发布者": String, "内容": String,
+    "id": String, "发布者": String, "头像": String, "内容": String,
     "点赞数": Number, "评论": Array<{ "用户": String, "内容": String }>,
-    "时间戳": String, "timestampValue": Number
+    "时间戳": String, "timestampValue": Number, "图片描述": String
   }>
 
-## 8. 世界动态 (gameState.世界)
+## 9. 世界动态 (gameState.世界)
 - \`gameState.世界.异常指数\`: Number (0-100)
 - \`gameState.世界.眷族声望\`: Number
 - \`gameState.世界.头条新闻\`: String[]
 - \`gameState.世界.街头传闻\`: Array<{ "主题": String, "传播度": Number }>
 - \`gameState.世界.下次更新\`: String
 
-## 9. 剧情进度 (gameState.剧情)
+## 10. 地图系统 (gameState.地图)
+- \`gameState.地图.config\`: { "width": Number, "height": Number }
+- \`gameState.地图.factions\`: Array<{ "id", "name", "color", "borderColor", "textColor", "description", "strength" }>
+- \`gameState.地图.territories\`: Array<{ "id", "factionId", "name", "centerX", "centerY", "color", "floor", "shape", "sector", "points", "boundary" }>
+- \`gameState.地图.terrain\`: Array<{ "id", "type", "name", "path", "color", "strokeColor", "strokeWidth", "floor" }>
+- \`gameState.地图.routes\`: Array<{ "id", "name", "path", "type", "width", "color", "floor" }>
+- \`gameState.地图.surfaceLocations\`: Array<{ "id", "name", "type", "coordinates", "radius", "description", "icon", "floor" }>
+- \`gameState.地图.dungeonStructure\`: Array<{ "floorStart", "floorEnd", "name", "description", "dangerLevel", "landmarks" }>
+
+## 11. 剧情进度 (gameState.剧情)
 - \`gameState.剧情.当前卷数\`: Number
 - \`gameState.剧情.当前篇章\`: String
 - \`gameState.剧情.关键节点\`: String
 - \`gameState.剧情.节点状态\`: String
+- \`gameState.剧情.预定日期\`: String
 - \`gameState.剧情.是否正史\`: Boolean
 - \`gameState.剧情.下一触发\`: String
+- \`gameState.剧情.描述\`: String
 - \`gameState.剧情.偏移度\`: Number
 
-## 10. 眷族信息 (gameState.眷族)
+## 12. 契约系统 (gameState.契约)
+- \`gameState.契约\`: Array<{ "id", "名称", "描述", "状态", "条款" }>
+
+## 13. 眷族信息 (gameState.眷族)
 - \`gameState.眷族.名称\`: String
 - \`gameState.眷族.等级\`: String
 - \`gameState.眷族.主神\`: String
 - \`gameState.眷族.资金\`: Number
+- \`gameState.眷族.设施状态\`: Object
 - \`gameState.眷族.仓库\`: Array<InventoryItem>
+
+## 14. 技能池 (gameState.技能)
+- \`gameState.技能\`: Array<Skill>
+
+## 15. 记忆系统 (gameState.记忆)
+- \`gameState.记忆.lastLogIndex\`: Number
+- \`gameState.记忆.instant\`: Array<LogEntry> (可选, 兼容旧版)
+- \`gameState.记忆.shortTerm\`: Array<{ "content", "timestamp", "turnIndex" }>
+- \`gameState.记忆.mediumTerm\`: String[]
+- \`gameState.记忆.longTerm\`: String[]
 `;

@@ -148,7 +148,28 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         if (savedSettings) {
             try {
                 const parsed = JSON.parse(savedSettings);
-                setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+                const renameMap: Record<string, string> = {
+                    'Easy Mode': '难度-轻松',
+                    'Normal Mode': '难度-普通',
+                    'Hard Mode': '难度-困难',
+                    'Hell Mode': '难度-地狱',
+                    'Physiology Easy': '生理-轻松',
+                    'Physiology Normal': '生理-普通',
+                    'Physiology Hard': '生理-困难',
+                    'Physiology Hell': '生理-地狱'
+                };
+                const savedModules = Array.isArray(parsed.promptModules) ? parsed.promptModules : [];
+                const savedMap = new Map(savedModules.map((m: any) => [m.id, m]));
+                const mergedDefaults = DEFAULT_PROMPT_MODULES.map(def => {
+                    const saved = savedMap.get(def.id);
+                    if (!saved) return def;
+                    const renamed = renameMap[saved.name] ? def.name : saved.name;
+                    return { ...def, ...saved, name: renamed };
+                });
+                const defaultIds = new Set(DEFAULT_PROMPT_MODULES.map(m => m.id));
+                const extraModules = savedModules.filter((m: any) => !defaultIds.has(m.id));
+                const mergedPromptModules = [...mergedDefaults, ...extraModules];
+                setSettings({ ...DEFAULT_SETTINGS, ...parsed, promptModules: mergedPromptModules });
             } catch(e) { console.warn("Settings corrupted"); }
         }
     }, []);
@@ -172,6 +193,13 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                     else if (currentDiff === Difficulty.NORMAL && mod.id === 'phys_normal') shouldBeActive = true;
                     else if (currentDiff === Difficulty.HARD && mod.id === 'phys_hard') shouldBeActive = true;
                     else if (currentDiff === Difficulty.HELL && mod.id === 'phys_hell') shouldBeActive = true;
+                    else shouldBeActive = false;
+                }
+                if (mod.group === '判定系统') {
+                    if (currentDiff === Difficulty.EASY && mod.id === 'judge_easy') shouldBeActive = true;
+                    else if (currentDiff === Difficulty.NORMAL && mod.id === 'judge_normal') shouldBeActive = true;
+                    else if (currentDiff === Difficulty.HARD && mod.id === 'judge_hard') shouldBeActive = true;
+                    else if (currentDiff === Difficulty.HELL && mod.id === 'judge_hell') shouldBeActive = true;
                     else shouldBeActive = false;
                 }
                 if (shouldBeActive !== mod.isActive) {
@@ -397,32 +425,41 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 }
 
                 if (logs.length > 0) {
+                    let rawToAttach = aiResponse.rawResponse;
+                    let timestampOffset = 0;
+                    const splitLogText = (text: string) => text.split('\n').map(s => s.trim()).filter(Boolean);
                     logs.forEach((l, idx) => {
                         let sender = l.sender;
                         if (sender === 'narrative' || sender === '旁白' || sender === 'narrator') sender = '旁白';
-                        
-                        const rawData = idx === 0 ? aiResponse.rawResponse : undefined;
-
-                        newLogs.push({ 
-                            id: generateLegacyId(), 
-                            text: l.text, 
-                            sender: sender, 
-                            timestamp: Date.now() + idx, 
-                            turnIndex, 
-                            gameTime: aiLogGameTime,
-                            rawResponse: rawData
+                        const lines = splitLogText(l.text || "");
+                        const outputLines = lines.length > 0 ? lines : [l.text || ""];
+                        outputLines.forEach((line) => {
+                            newLogs.push({ 
+                                id: generateLegacyId(), 
+                                text: line, 
+                                sender: sender, 
+                                timestamp: Date.now() + timestampOffset++, 
+                                turnIndex, 
+                                gameTime: aiLogGameTime,
+                                rawResponse: rawToAttach || undefined
+                            });
+                            rawToAttach = undefined;
                         });
                     });
                 } else if (narrative) {
-                     newLogs.push({ 
-                         id: generateLegacyId(), 
-                         text: narrative, 
-                         sender: '旁白', 
-                         timestamp: Date.now(), 
-                         turnIndex, 
-                         gameTime: aiLogGameTime,
-                         rawResponse: aiResponse.rawResponse 
-                     });
+                    const lines = narrative.split('\n').map(s => s.trim()).filter(Boolean);
+                    const outputLines = lines.length > 0 ? lines : [narrative];
+                    outputLines.forEach((line, lineIndex) => {
+                        newLogs.push({ 
+                            id: generateLegacyId(), 
+                            text: line, 
+                            sender: '旁白', 
+                            timestamp: Date.now() + lineIndex, 
+                            turnIndex, 
+                            gameTime: aiLogGameTime,
+                            rawResponse: lineIndex === 0 ? aiResponse.rawResponse : undefined
+                        });
+                    });
                 }
                 
                 newState.日志 = [...newState.日志, ...newLogs];
@@ -598,12 +635,13 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const handlePlayerAction = (action: 'attack' | 'skill' | 'guard' | 'escape' | 'talk' | 'item', payload?: any) => {
         if (isProcessing) return;
         let input = "";
+        const targetName = payload?.targetName ? `【${payload.targetName}】` : "";
         switch (action) {
-            case 'attack': input = "我发起攻击。"; break;
-            case 'guard': input = "我采取防御姿态。"; break;
+            case 'attack': input = targetName ? `我攻击${targetName}。` : "我发起攻击。"; break;
+            case 'guard': input = targetName ? `我对${targetName}保持防御姿态。` : "我采取防御姿态。"; break;
             case 'escape': input = "我尝试逃跑！"; break;
             case 'talk': input = `(自由行动) ${payload}`; break;
-            case 'skill': input = `我使用技能【${payload?.名称 || 'Unknown'}】。`; break;
+            case 'skill': input = `我使用技能【${payload?.名称 || 'Unknown'}】${targetName ? `，目标${targetName}` : ""}。`; break;
             case 'item': input = `我使用道具【${payload?.名称 || 'Unknown'}】。`; break;
         }
         if (input) handleAIInteraction(input, 'ACTION');

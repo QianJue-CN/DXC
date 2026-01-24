@@ -88,6 +88,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // File Import Ref
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const promptFileInputRef = useRef<HTMLInputElement>(null);
 
   // Init Data
   useEffect(() => {
@@ -284,6 +285,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       };
       reader.readAsText(file);
       e.target.value = ''; // Reset input
+  };
+
+  // --- Prompt Export / Import ---
+  const normalizePromptModules = (modules: PromptModule[]) => {
+      return modules.map((m, idx) => ({
+          id: m.id || `import_${idx}`,
+          name: m.name || `未命名模块_${idx + 1}`,
+          group: m.group || '未分组',
+          usage: (['CORE', 'START', 'MEMORY_S2M', 'MEMORY_M2L'] as PromptUsage[]).includes(m.usage as PromptUsage) ? m.usage : 'CORE',
+          isActive: typeof m.isActive === 'boolean' ? m.isActive : true,
+          content: typeof m.content === 'string' ? m.content : '',
+          order: typeof m.order === 'number' ? m.order : 100
+      }));
+  };
+
+  const handleExportPrompts = () => {
+      const exportData = {
+          version: '3.1',
+          exportedAt: Date.now(),
+          promptModules: formData.promptModules
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `danmachi_prompts_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  };
+
+  const handleImportPrompts = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+          try {
+              const content = ev.target?.result as string;
+              const parsed = JSON.parse(content);
+              const rawModules = Array.isArray(parsed) ? parsed : parsed.promptModules;
+              if (!Array.isArray(rawModules)) throw new Error("提示词文件格式错误：未找到 promptModules");
+              const normalized = normalizePromptModules(rawModules);
+              if (!window.confirm(`确认导入提示词？\n将覆盖当前提示词模块 (${normalized.length} 条)。`)) return;
+              setFormData({ ...formData, promptModules: normalized });
+              setActivePromptModuleId(null);
+              alert("提示词导入成功！");
+          } catch (err: any) {
+              alert("提示词导入失败: " + err.message);
+          }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
   };
 
   // --- Storage Management Logic ---
@@ -498,8 +552,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <h4 className="font-bold uppercase text-zinc-600 flex items-center gap-2">
                           <User size={16} /> 提示词模块
                       </h4>
-                      <button onClick={handleAddModule} className="p-1 hover:bg-zinc-200 rounded text-blue-600" title="Add Module"><Plus size={18}/></button>
+                      <div className="flex items-center gap-2">
+                          <button onClick={handleExportPrompts} className="p-1 hover:bg-zinc-200 rounded text-zinc-600" title="导出提示词"><FileDown size={16}/></button>
+                          <button onClick={() => promptFileInputRef.current?.click()} className="p-1 hover:bg-zinc-200 rounded text-zinc-600" title="导入提示词"><FileUp size={16}/></button>
+                          <button onClick={handleAddModule} className="p-1 hover:bg-zinc-200 rounded text-blue-600" title="新增模块"><Plus size={18}/></button>
+                      </div>
                   </div>
+                  <input type="file" ref={promptFileInputRef} className="hidden" accept=".json" onChange={handleImportPrompts} />
                   <div className="flex-1 p-2 space-y-4">
                       {Object.entries(groups).map(([groupName, mods]) => (
                           <div key={groupName} className="space-y-1">
@@ -898,6 +957,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <SettingsAIServices 
                         settings={formData.aiConfig} 
                         onUpdate={(newAiConfig) => setFormData({...formData, aiConfig: newAiConfig})} 
+                        onSave={(newAiConfig) => {
+                            const next = { ...formData, aiConfig: newAiConfig };
+                            setFormData(next);
+                            onSaveSettings(next);
+                        }}
                     />
                 )}
                 {currentView === 'VARIABLES' && renderVariablesView()}

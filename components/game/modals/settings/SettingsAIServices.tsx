@@ -6,9 +6,10 @@ import { AIEndpointConfig, GlobalAISettings } from '../../../../types';
 interface SettingsAIServicesProps {
     settings: GlobalAISettings;
     onUpdate: (newSettings: GlobalAISettings) => void;
+    onSave?: (newSettings: GlobalAISettings) => void;
 }
 
-export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings, onUpdate }) => {
+export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings, onUpdate, onSave }) => {
     const [localConfig, setLocalConfig] = useState<GlobalAISettings>(settings);
     const [activeTab, setActiveTab] = useState<'SOCIAL' | 'WORLD' | 'NPC_SYNC' | 'NPC_BRAIN'>('SOCIAL');
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -35,7 +36,8 @@ export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings
     };
 
     const saveChanges = () => {
-        onUpdate(localConfig);
+        if (onSave) onSave(localConfig);
+        else onUpdate(localConfig);
         setHasUnsavedChanges(false);
         alert("API 配置已保存");
     };

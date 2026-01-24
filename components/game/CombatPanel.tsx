@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
-import { CombatState, CharacterStats, Skill, InventoryItem } from '../../types';
-import { Sword, Shield, Zap, Skull, MessageSquare, Crosshair, Package, Activity, AlertTriangle, X } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { CombatState, CharacterStats, Skill, InventoryItem, Enemy } from '../../types';
+import { Sword, Shield, Zap, Skull, MessageSquare, Crosshair, Package, Activity, AlertTriangle, X, Target, Swords } from 'lucide-react';
 
 interface CombatPanelProps {
   combatState: CombatState;
@@ -20,8 +20,24 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
 }) => {
   const [menuLevel, setMenuLevel] = useState<'MAIN' | 'SKILLS' | 'ITEMS' | 'TALK'>('MAIN');
   const [freeActionInput, setFreeActionInput] = useState('');
+  const enemies = useMemo(() => {
+      const raw = (combatState as any)?.敌方;
+      if (!raw) return [] as Enemy[];
+      return Array.isArray(raw) ? raw.filter(Boolean) : [raw];
+  }, [combatState]);
+  const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(enemies[0]?.id ?? null);
 
-  if (!combatState.敌方) return <div className="p-10 text-white animate-pulse">扫描敌对目标中...</div>;
+  useEffect(() => {
+      if (enemies.length === 0) {
+          setSelectedEnemyId(null);
+          return;
+      }
+      if (!selectedEnemyId || !enemies.some(e => e.id === selectedEnemyId)) {
+          setSelectedEnemyId(enemies[0].id);
+      }
+  }, [enemies, selectedEnemyId]);
+
+  if (enemies.length === 0) return <div className="p-10 text-white animate-pulse">扫描敌对目标中...</div>;
 
   const validConsumables = inventory.filter(i => i.类型 === 'consumable');
 
@@ -33,77 +49,155 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
       }
   };
 
-  const enemy = combatState.敌方;
+  const selectedEnemy = enemies.find(e => e.id === selectedEnemyId) || enemies[0];
+
+  const getEnemyHp = (enemy: Enemy) => {
+      const current = typeof enemy.当前生命值 === 'number'
+          ? enemy.当前生命值
+          : (typeof enemy.生命值 === 'number' ? enemy.生命值 : 0);
+      const max = typeof enemy.最大生命值 === 'number'
+          ? enemy.最大生命值
+          : Math.max(current, 1);
+      return { current, max };
+  };
+
+  const getEnemyMp = (enemy: Enemy) => {
+      const current = typeof enemy.当前精神MP === 'number'
+          ? enemy.当前精神MP
+          : (typeof enemy.精神力 === 'number' ? enemy.精神力 : null);
+      const max = typeof enemy.最大精神MP === 'number'
+          ? enemy.最大精神MP
+          : (typeof enemy.最大精神力 === 'number' ? enemy.最大精神力 : null);
+      if (current === null || max === null) return null;
+      return { current, max };
+  };
+
+  const handleTargetedAction = (action: 'attack' | 'skill' | 'guard' | 'escape' | 'talk' | 'item', payload?: any) => {
+      const targetPayload = selectedEnemy
+          ? { ...(payload || {}), targetId: selectedEnemy.id, targetName: selectedEnemy.名称 }
+          : payload;
+      onPlayerAction(action, targetPayload);
+  };
 
   return (
     <div className="w-full h-full relative flex flex-col overflow-hidden bg-black font-sans">
       
       {/* --- Dynamic Background --- */}
       <div className="absolute inset-0 z-0 bg-zinc-950 pointer-events-none">
-         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-900/20 via-black to-black" />
-         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
-         <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,0,0,0.05)_10px,rgba(255,0,0,0.05)_11px)]" />
+         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-red-950/40 via-black to-black" />
+         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/brushed-alum.png')] opacity-15" />
+         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,0,0,0.08)_0%,transparent_40%,rgba(255,255,255,0.04)_60%,transparent_100%)]" />
       </div>
 
-      {/* --- Battlefield (Top 60%) --- */}
-      <div className="flex-1 relative z-10 p-4 md:p-8 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16">
-        
-        {/* Enemy Unit Data Card */}
-        <div className="relative group w-full max-w-sm">
-            {/* Target Crosshair */}
-            <div className="absolute -top-6 -right-6 text-red-500 animate-spin-slow opacity-50">
-                <Crosshair size={60} />
-            </div>
+      {/* --- Battlefield --- */}
+      <div className="flex-1 relative z-10 p-4 md:p-6 flex flex-col gap-6">
+          <div className="flex items-center justify-between text-xs uppercase tracking-[0.35em] text-red-400 font-bold">
+              <div className="flex items-center gap-2">
+                  <Swords size={14} />
+                  敌对单位
+              </div>
+              <span className="text-red-500/70">数量: {enemies.length}</span>
+          </div>
 
-            <div className="bg-zinc-900/90 border-2 border-red-600 p-6 shadow-[0_0_30px_rgba(220,38,38,0.3)] relative overflow-hidden transform transition-transform hover:scale-105">
-                <div className="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold px-2 py-1 uppercase">HOSTILE</div>
-                
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 bg-black border border-red-800 flex items-center justify-center text-red-500 rounded shadow-inner">
-                        <Skull size={40} />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl md:text-3xl font-display font-black italic text-white tracking-wider leading-none mb-1">
-                            {enemy.名称}
-                        </h2>
-                        <div className="flex gap-2">
-                            <span className="text-xs font-mono text-red-400 border border-red-900 px-1">LV.{enemy.等级 || '?'}</span>
-                            {enemy.精神力 !== undefined && (
-                                <span className="text-xs font-mono text-purple-400 border border-purple-900 px-1">MP.{enemy.精神力}</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
+          <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[360px] md:max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+                      {enemies.map(enemy => {
+                          const hp = getEnemyHp(enemy);
+                          const mp = getEnemyMp(enemy);
+                          const hpPercent = Math.max(0, Math.min(100, (hp.current / hp.max) * 100));
+                          const mpPercent = mp ? Math.max(0, Math.min(100, (mp.current / mp.max) * 100)) : 0;
+                          const isSelected = enemy.id === selectedEnemy?.id;
+                          return (
+                              <button
+                                  key={enemy.id}
+                                  type="button"
+                                  onClick={() => setSelectedEnemyId(enemy.id)}
+                                  className={`group relative text-left border-2 p-4 bg-zinc-950/90 transition-all shadow-[0_0_20px_rgba(220,38,38,0.15)] ${
+                                      isSelected ? 'border-red-500 ring-2 ring-red-500/50' : 'border-zinc-800 hover:border-red-700'
+                                  }`}
+                              >
+                                  <div className="absolute top-2 right-2 text-red-500/40 group-hover:text-red-400">
+                                      <Crosshair size={18} />
+                                  </div>
+                                  <div className="flex items-center gap-3 mb-3">
+                                      <div className="w-12 h-12 bg-black border border-red-900 flex items-center justify-center text-red-500">
+                                          <Skull size={26} />
+                                      </div>
+                                      <div>
+                                          <div className="text-white font-display text-lg uppercase tracking-wider leading-none">
+                                              {enemy.名称}
+                                          </div>
+                                          <div className="flex items-center gap-2 mt-1">
+                                              <span className="text-[10px] font-mono text-red-300 border border-red-900 px-1">LV.{enemy.等级 || '?'}</span>
+                                              <span className="text-[10px] font-mono text-zinc-500">ATK {enemy.攻击力 ?? '??'}</span>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                      <div>
+                                          <div className="flex justify-between text-[10px] text-red-300 font-bold mb-1">
+                                              <span>HP</span>
+                                              <span>{Math.round(hpPercent)}%</span>
+                                          </div>
+                                          <div className="w-full h-3 bg-black border border-red-900 overflow-hidden">
+                                              <div className="h-full bg-red-600 transition-all duration-300" style={{ width: `${hpPercent}%` }} />
+                                          </div>
+                                      </div>
+                                      {mp && (
+                                          <div>
+                                              <div className="flex justify-between text-[10px] text-purple-300 font-bold mb-1">
+                                                  <span>MP</span>
+                                                  <span>{Math.round(mpPercent)}%</span>
+                                              </div>
+                                              <div className="w-full h-2 bg-black border border-purple-900 overflow-hidden">
+                                                  <div className="h-full bg-purple-600 transition-all duration-300" style={{ width: `${mpPercent}%` }} />
+                                              </div>
+                                          </div>
+                                      )}
+                                  </div>
+                              </button>
+                          );
+                      })}
+                  </div>
+              </div>
 
-                {/* HP Bar */}
-                <div className="mb-2">
-                    <div className="flex justify-between text-xs text-red-300 font-bold mb-1">
-                        <span>HP</span>
-                        <span>{((enemy.生命值 / enemy.最大生命值) * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="w-full h-4 bg-black border border-red-900 skew-x-[-15deg] overflow-hidden">
-                        <div 
-                            className="h-full bg-red-600 transition-all duration-300"
-                            style={{ width: `${(enemy.生命值 / enemy.最大生命值) * 100}%` }}
-                        />
-                    </div>
-                </div>
-
-                <p className="text-xs text-zinc-400 italic font-serif leading-relaxed line-clamp-2">
-                    "{enemy.描述 || '一个充满敌意的存在。'}"
-                </p>
-                
-                {/* Skills Hint */}
-                {enemy.技能 && enemy.技能.length > 0 && (
-                    <div className="mt-3 pt-2 border-t border-red-900/50 flex flex-wrap gap-1">
-                        {enemy.技能.slice(0, 3).map((skill, i) => (
-                            <span key={i} className="text-[10px] bg-red-950 text-red-300 px-1 rounded border border-red-900/50">{skill}</span>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-
+              <div className="w-full lg:w-[320px] bg-zinc-950/90 border-2 border-red-800 p-4 flex flex-col gap-4 relative overflow-hidden">
+                  <div className="absolute -top-6 -right-4 text-red-900/40">
+                      <Target size={64} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 bg-black border border-red-900 flex items-center justify-center text-red-500">
+                          <Skull size={32} />
+                      </div>
+                      <div>
+                          <div className="text-[10px] uppercase tracking-[0.4em] text-red-400">锁定目标</div>
+                          <div className="text-white font-display text-2xl uppercase tracking-wider">{selectedEnemy?.名称}</div>
+                      </div>
+                  </div>
+                  <div className="text-xs text-zinc-400 font-serif leading-relaxed border-t border-red-900/40 pt-3 min-h-[72px]">
+                      "{selectedEnemy?.描述 || '敌意正在凝聚。'}"
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[10px] text-zinc-300">
+                      <span className="border border-red-900 px-2 py-0.5">攻击力: {selectedEnemy?.攻击力 ?? '??'}</span>
+                      <span className="border border-red-900 px-2 py-0.5">等级: {selectedEnemy?.等级 ?? '?'}</span>
+                  </div>
+                  <div className="border-t border-red-900/40 pt-3">
+                      <div className="text-[10px] uppercase tracking-[0.35em] text-red-400 mb-2">技能档案</div>
+                      {selectedEnemy?.技能 && selectedEnemy.技能.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                              {selectedEnemy.技能.map((skill, i) => (
+                                  <span key={i} className="text-[10px] bg-red-950 text-red-300 px-2 py-0.5 border border-red-900/60">
+                                      {skill}
+                                  </span>
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-[10px] text-zinc-500 italic">暂无可识别技能</div>
+                      )}
+                  </div>
+              </div>
+          </div>
       </div>
 
       {/* --- Info Bar (Middle) --- */}
@@ -128,6 +222,10 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
                  </h3>
                  <span className="text-xs text-blue-500 font-bold">LV.{playerStats.等级}</span>
              </div>
+             <div className="text-[10px] uppercase tracking-[0.35em] text-zinc-500 flex items-center gap-2">
+                 <Target size={12} className="text-red-500" />
+                 目标: {selectedEnemy?.名称 || '无'}
+             </div>
              <div className="space-y-3">
                  <div className="relative">
                      <div className="flex justify-between text-[10px] text-green-500 font-bold mb-0.5"><span>HP</span><span>{playerStats.生命值}/{playerStats.最大生命值}</span></div>
@@ -144,10 +242,10 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
          <div className="flex-1 p-4 md:p-6 bg-zinc-900 overflow-y-auto custom-scrollbar">
              {menuLevel === 'MAIN' ? (
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 h-full">
-                    <CombatButton label="攻击 (Attack)" icon={<Sword/>} onClick={() => onPlayerAction('attack')} color="bg-red-700 hover:bg-red-600" />
+                    <CombatButton label="攻击 (Attack)" icon={<Sword/>} onClick={() => handleTargetedAction('attack')} color="bg-red-700 hover:bg-red-600" />
                     <CombatButton label="技能 (Skill)" icon={<Zap/>} onClick={() => setMenuLevel('SKILLS')} color="bg-blue-700 hover:bg-blue-600" />
                     <CombatButton label="物品 (Item)" icon={<Package/>} onClick={() => setMenuLevel('ITEMS')} color="bg-green-700 hover:bg-green-600" />
-                    <CombatButton label="防御 (Guard)" icon={<Shield/>} onClick={() => onPlayerAction('guard')} color="bg-yellow-700 hover:bg-yellow-600" />
+                    <CombatButton label="防御 (Guard)" icon={<Shield/>} onClick={() => handleTargetedAction('guard')} color="bg-yellow-700 hover:bg-yellow-600" />
                     <CombatButton label="自由行动 (Free)" icon={<MessageSquare/>} onClick={() => setMenuLevel('TALK')} color="bg-pink-700 hover:bg-pink-600" />
                     <CombatButton label="逃跑 (Escape)" icon={<AlertTriangle/>} onClick={() => onPlayerAction('escape')} color="bg-zinc-700 hover:bg-zinc-600" />
                  </div>
@@ -158,7 +256,7 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
                          {skills.length > 0 ? skills.map(skill => (
                              <button 
                                 key={skill.id}
-                                onClick={() => onPlayerAction('skill', skill)}
+                                onClick={() => handleTargetedAction('skill', skill)}
                                 className="w-full flex justify-between items-center bg-zinc-800 p-3 border-l-4 border-blue-600 hover:bg-zinc-700 transition-colors text-left"
                              >
                                  <div>

@@ -8,6 +8,7 @@ export * from './schema';
 export * from './writing';
 export * from './world_values';
 export * from './difficulty';
+export * from './judgment';
 export * from './physiology';
 export * from './social';
 export * from './loot';

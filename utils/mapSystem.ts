@@ -15,18 +15,22 @@ export const getOppositeDir = (dir: Direction): Direction => {
 export const generateEnemy = (floor: number, isBoss: boolean = false): Enemy => {
   const baseHp = 50 + (floor * 20);
   const baseAtk = 8 + (floor * 2);
+  const baseMp = 20 + (floor * 6);
   const level = Math.max(1, Math.floor((floor - 1) / 12) + 1);
 
   if (isBoss) {
     return {
       id: 'boss_' + Date.now(),
       名称: `第${floor}层 迷宫孤王`,
-      生命值: baseHp * 3,
+      当前生命值: baseHp * 3,
       最大生命值: baseHp * 3,
-      攻击力: baseAtk * 1.5,
+      当前精神MP: baseMp * 2,
+      最大精神MP: baseMp * 2,
+      攻击力: Math.round(baseAtk * 1.5),
       描述: "统治该楼层的强大怪物。",
       图片: "https://images.unsplash.com/photo-1620560024765-685b306b3a0c?q=80&w=600&auto=format&fit=crop",
-      等级: level + 1 
+      等级: level + 1,
+      技能: ["咆哮震慑", "重击"]
     };
   }
 
@@ -42,12 +46,15 @@ export const generateEnemy = (floor: number, isBoss: boolean = false): Enemy => 
   return {
     id: 'enemy_' + Date.now(),
     名称: template.name,
-    生命值: baseHp + Math.floor(Math.random() * 20),
+    当前生命值: baseHp + Math.floor(Math.random() * 20),
     最大生命值: baseHp + Math.floor(Math.random() * 20),
+    当前精神MP: baseMp + Math.floor(Math.random() * 10),
+    最大精神MP: baseMp + Math.floor(Math.random() * 10),
     攻击力: baseAtk,
     描述: template.desc,
     图片: template.img,
-    等级: level
+    等级: level,
+    技能: ["突袭", "连击"]
   };
 };
 
@@ -138,6 +145,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_north', factionId: 'f_loki', name: '北大街 (繁华区)',
             centerX: CENTER_X, centerY: CENTER_Y - 10000, color: factions[1].color,
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 247.5, 292.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 247.5, endAngle: 292.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.2, floor: 0
         },
         // 东北 (292.5° - 337.5°): 芙蕾雅眷族
@@ -145,6 +154,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_northeast', factionId: 'f_freya', name: '东北大街 (战斗荒野)',
             centerX: CENTER_X + 8000, centerY: CENTER_Y - 8000, color: factions[2].color,
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 292.5, 337.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 292.5, endAngle: 337.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.2, floor: 0
         },
         // 东 (337.5° - 22.5°): 贫民窟/代达罗斯路 (Wrap around 0)
@@ -153,6 +164,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             centerX: CENTER_X + 10000, centerY: CENTER_Y, color: factions[7].color,
             // Draw in two parts or normalize angles. Simple approach: -22.5 to 22.5
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, -22.5, 22.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: -22.5, endAngle: 22.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.3, floor: 0
         },
         // 东南 (22.5° - 67.5°): 欢乐街
@@ -160,6 +173,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_southeast', factionId: 'f_ishtar', name: '东南大街 (欢乐街)',
             centerX: CENTER_X + 8000, centerY: CENTER_Y + 8000, color: factions[4].color,
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 22.5, 67.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 22.5, endAngle: 67.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.25, floor: 0
         },
         // 南 (67.5° - 112.5°): 正门/新手区
@@ -167,6 +182,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_south', factionId: 'f_neutral', name: '南大街 (正门)',
             centerX: CENTER_X, centerY: CENTER_Y + 12000, color: '#94a3b8',
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 67.5, 112.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 67.5, endAngle: 112.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.15, floor: 0
         },
         // 西南 (112.5° - 157.5°): 赫菲斯托丝
@@ -174,6 +191,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_southwest', factionId: 'f_heph', name: '西南大街 (工业区)',
             centerX: CENTER_X - 8000, centerY: CENTER_Y + 8000, color: factions[3].color,
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 112.5, 157.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 112.5, endAngle: 157.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.2, floor: 0
         },
         // 西 (157.5° - 202.5°): 丰饶女主人/商业
@@ -181,6 +200,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_west', factionId: 'f_neutral', name: '西大街 (商业区)',
             centerX: CENTER_X - 10000, centerY: CENTER_Y, color: '#60a5fa',
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 157.5, 202.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 157.5, endAngle: 202.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.15, floor: 0
         },
         // 西北 (202.5° - 247.5°): 公会
@@ -188,6 +209,8 @@ export const generateDanMachiMap = (): WorldMapData => {
             id: 't_northwest', factionId: 'f_guild', name: '西北大街 (行政区)',
             centerX: CENTER_X - 8000, centerY: CENTER_Y - 8000, color: factions[0].color,
             boundary: createSectorPath(CENTER_X, CENTER_Y, CITY_RADIUS, 202.5, 247.5, PLAZA_RADIUS),
+            shape: 'SECTOR',
+            sector: { startAngle: 202.5, endAngle: 247.5, innerRadius: PLAZA_RADIUS, outerRadius: CITY_RADIUS },
             opacity: 0.2, floor: 0
         }
     ];

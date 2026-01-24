@@ -23,12 +23,15 @@ export interface TerritoryData {
   id: string;
   factionId: string;
   name: string;
-  boundary: string; // SVG path
+  boundary?: string; // SVG path (legacy)
   centerX: number;
   centerY: number;
   color: string;
   opacity?: number;
-  floor?: number; 
+  floor?: number;
+  shape?: 'SECTOR' | 'CIRCLE' | 'POLYGON';
+  sector?: { startAngle: number; endAngle: number; innerRadius?: number; outerRadius: number };
+  points?: GeoPoint[];
 }
 
 export interface TerrainFeature {

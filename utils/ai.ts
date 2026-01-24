@@ -8,6 +8,7 @@ import {
     P_WRITING_REQ, P_WORLD_VALUES, P_LOOT_SYSTEM,
     P_PHYSIOLOGY_EASY, P_PHYSIOLOGY_NORMAL, P_PHYSIOLOGY_HARD, P_PHYSIOLOGY_HELL,
     P_DIFFICULTY_EASY, P_DIFFICULTY_NORMAL, P_DIFFICULTY_HARD, P_DIFFICULTY_HELL,
+    P_JUDGMENT_EASY, P_JUDGMENT_NORMAL, P_JUDGMENT_HARD, P_JUDGMENT_HELL,
     P_ACTION_OPTIONS, P_FAMILIA_JOIN, P_STORY_GUIDE
 } from "../prompts";
 import { Difficulty } from "../types/enums";
@@ -40,6 +41,12 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
 
     // 【COT思维链】
     { id: 'cot_logic', name: '1. 核心思维链', group: 'COT思维链', usage: 'CORE', isActive: true, content: P_COT_LOGIC, order: 0 },
+
+    // 【判定系统】(随难度切换)
+    { id: 'judge_easy', name: '判定系统-轻松', group: '判定系统', usage: 'CORE', isActive: false, content: P_JUDGMENT_EASY, order: 15 },
+    { id: 'judge_normal', name: '判定系统-普通', group: '判定系统', usage: 'CORE', isActive: false, content: P_JUDGMENT_NORMAL, order: 15 },
+    { id: 'judge_hard', name: '判定系统-困难', group: '判定系统', usage: 'CORE', isActive: false, content: P_JUDGMENT_HARD, order: 15 },
+    { id: 'judge_hell', name: '判定系统-地狱', group: '判定系统', usage: 'CORE', isActive: false, content: P_JUDGMENT_HELL, order: 15 },
     
     // 【动态世界提示词】
     { id: 'dyn_npc_event', name: '1. 动态事件生成', group: '动态世界提示词', usage: 'CORE', isActive: true, content: P_DYN_NPC, order: 40 },
@@ -55,15 +62,15 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     { id: 'mem_m2l', name: '2. 中转长 (M->L)', group: '记忆配置', usage: 'MEMORY_M2L', isActive: true, content: P_MEM_M2L, order: 91 },
 
     // 难度与生理系统 (默认禁用，动态开启)
-    { id: 'diff_easy', name: 'Easy Mode', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_EASY, order: 100 },
-    { id: 'diff_normal', name: 'Normal Mode', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_NORMAL, order: 100 },
-    { id: 'diff_hard', name: 'Hard Mode', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_HARD, order: 100 },
-    { id: 'diff_hell', name: 'Hell Mode', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_HELL, order: 100 },
+    { id: 'diff_easy', name: '难度-轻松', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_EASY, order: 100 },
+    { id: 'diff_normal', name: '难度-普通', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_NORMAL, order: 100 },
+    { id: 'diff_hard', name: '难度-困难', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_HARD, order: 100 },
+    { id: 'diff_hell', name: '难度-地狱', group: '难度系统', usage: 'CORE', isActive: false, content: P_DIFFICULTY_HELL, order: 100 },
 
-    { id: 'phys_easy', name: 'Physiology Easy', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_EASY, order: 21 },
-    { id: 'phys_normal', name: 'Physiology Normal', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_NORMAL, order: 21 },
-    { id: 'phys_hard', name: 'Physiology Hard', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_HARD, order: 21 },
-    { id: 'phys_hell', name: 'Physiology Hell', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_HELL, order: 21 },
+    { id: 'phys_easy', name: '生理-轻松', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_EASY, order: 21 },
+    { id: 'phys_normal', name: '生理-普通', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_NORMAL, order: 21 },
+    { id: 'phys_hard', name: '生理-困难', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_HARD, order: 21 },
+    { id: 'phys_hell', name: '生理-地狱', group: '生理系统', usage: 'CORE', isActive: false, content: P_PHYSIOLOGY_HELL, order: 21 },
 ];
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
@@ -354,7 +361,27 @@ export const constructPhoneContext = (messages: PhoneMessage[], moments: MomentP
 
 export const constructCombatContext = (combat: any, params: any): string => {
     if (!combat || !combat.是否战斗中) return "";
-    return `[战斗状态 (Combat State)]\n敌方: ${combat.敌方 ? JSON.stringify(combat.敌方) : "Unknown"}\n战况记录: ${combat.战斗记录 ? combat.战斗记录.slice(-5).join(' | ') : ""}`;
+    const rawEnemies = combat.敌方;
+    const enemies = Array.isArray(rawEnemies) ? rawEnemies : (rawEnemies ? [rawEnemies] : []);
+    const formatEnemy = (enemy: any, index: number) => {
+        const currentHp = typeof enemy.当前生命值 === 'number' ? enemy.当前生命值 : (enemy.生命值 ?? 0);
+        const maxHp = typeof enemy.最大生命值 === 'number' ? enemy.最大生命值 : Math.max(currentHp || 0, 1);
+        const currentMp = typeof enemy.当前精神MP === 'number' ? enemy.当前精神MP : (enemy.精神力 ?? null);
+        const maxMp = typeof enemy.最大精神MP === 'number' ? enemy.最大精神MP : (enemy.最大精神力 ?? null);
+        return [
+            `#${index + 1} ${enemy.名称 || '未知敌人'}`,
+            `- 生命: ${currentHp}/${maxHp}`,
+            `- 精神MP: ${currentMp !== null && maxMp !== null ? `${currentMp}/${maxMp}` : '未知'}`,
+            `- 攻击力: ${enemy.攻击力 ?? '未知'}`,
+            `- 技能: ${(enemy.技能 && enemy.技能.length > 0) ? enemy.技能.join(' / ') : '无'}`,
+            `- 描述: ${enemy.描述 || '无'}`,
+        ].join('\n');
+    };
+    const enemyBlock = enemies.length > 0
+        ? enemies.map(formatEnemy).join('\n\n')
+        : "无敌对目标";
+    const battleLog = combat.战斗记录 ? combat.战斗记录.slice(-5).join(' | ') : "";
+    return `[战斗状态 (Combat State)]\n${enemyBlock}\n\n战况记录: ${battleLog}`;
 };
 
 export const constructMemoryContext = (memory: MemorySystem, logs: LogEntry[], config: MemoryConfig, params: any): string => {
@@ -459,7 +486,7 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
             const activePromptModules = settings.promptModules.filter(m => {
                 if (!m.isActive) {
                     // Difficulty / Physiology Logic
-                    if (m.group === '难度系统' || m.group === '生理系统') {
+                    if (m.group === '难度系统' || m.group === '生理系统' || m.group === '判定系统') {
                         if (m.id.includes(difficulty.toLowerCase().replace('normal', 'normal'))) return true;
                         return false;
                     }

@@ -47,7 +47,32 @@ export const drawWorldMapCanvas = (
     if (showTerritories) {
         const territories = mapData.territories.filter(t => (t.floor || 0) === floor);
         territories.forEach(t => {
-            const path = new Path2D(t.boundary);
+            let path: Path2D | null = null;
+            if (t.sector) {
+                const startRad = (t.sector.startAngle * Math.PI) / 180;
+                const endRad = (t.sector.endAngle * Math.PI) / 180;
+                const innerRadius = Math.max(0, t.sector.innerRadius || 0);
+                const outerRadius = t.sector.outerRadius;
+                path = new Path2D();
+                const cx = t.centerX;
+                const cy = t.centerY;
+                path.moveTo(cx + innerRadius * Math.cos(startRad), cy + innerRadius * Math.sin(startRad));
+                path.arc(cx, cy, outerRadius, startRad, endRad);
+                if (innerRadius > 0) {
+                    path.arc(cx, cy, innerRadius, endRad, startRad, true);
+                } else {
+                    path.lineTo(cx, cy);
+                }
+                path.closePath();
+            } else if (t.points && t.points.length > 2) {
+                path = new Path2D();
+                path.moveTo(t.points[0].x, t.points[0].y);
+                t.points.slice(1).forEach(p => path!.lineTo(p.x, p.y));
+                path.closePath();
+            } else if (t.boundary) {
+                path = new Path2D(t.boundary);
+            }
+            if (!path) return;
             ctx.save();
             ctx.globalAlpha = t.opacity || 0.2;
             ctx.fillStyle = t.color;
@@ -59,6 +84,17 @@ export const drawWorldMapCanvas = (
             ctx.setLineDash([100, 50]);
             ctx.stroke(path);
             ctx.restore();
+
+            if (showLabels) {
+                ctx.save();
+                ctx.globalAlpha = 0.7;
+                ctx.fillStyle = t.color;
+                ctx.font = "bold 220px 'Noto Serif SC', serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(t.name, t.centerX, t.centerY);
+                ctx.restore();
+            }
         });
     }
 
