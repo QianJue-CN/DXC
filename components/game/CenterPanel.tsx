@@ -93,6 +93,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
   const actionIcon = isHellMode ? 'text-red-500' : 'text-blue-500';
   const actionChevron = isHellMode ? 'text-red-600' : 'text-blue-600';
   const actionBgHighlight = isHellMode ? 'bg-red-500/10' : 'bg-blue-500/10';
+  const logPaddingClass = actionOptions.length > 0 ? 'pb-48 md:pb-48' : 'pb-12 md:pb-16';
 
   // Scroll Logic
   useLayoutEffect(() => {
@@ -236,8 +237,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
       {/* Logs Scroll Area */}
       <div 
         ref={containerRef}
-        className="flex-1 overflow-y-auto p-4 md:p-10 z-10 custom-scrollbar scroll-smooth pb-48" 
-        /* Increased padding-bottom to accommodate input + action options on mobile */
+        className={`flex-1 overflow-y-auto p-4 md:p-10 z-10 custom-scrollbar scroll-smooth ${logPaddingClass}`}
       >
         {logs.map((log, index) => {
             const prevLog = logs[index - 1];

@@ -34,6 +34,9 @@ export const LogEntryItem: React.FC<LogEntryProps> = ({
     const isPlayer = senderName === 'player';
     
     const content = log.text || "";
+    const canEditAI = !isPlayer && !!log.rawResponse && !!onEditClick;
+    const canEditUser = isPlayer && !!onEditUserLog;
+    const hasActions = !!onDelete || canEditAI || canEditUser;
 
     const getTextSize = () => {
         switch(fontSize) {
@@ -44,12 +47,53 @@ export const LogEntryItem: React.FC<LogEntryProps> = ({
     };
     const textSizeClass = getTextSize();
 
+    const MobileActions = ({ align }: { align: 'left' | 'right' | 'center' }) => {
+        if (!hasActions) return null;
+        const alignClass = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start';
+        return (
+            <div className={`md:hidden mt-2 flex gap-2 ${alignClass}`}>
+                {canEditAI && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEditClick(log);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-wider border border-zinc-700 text-zinc-300 bg-black/70 hover:text-white hover:border-green-500"
+                    >
+                        <Terminal size={12} /> 原文
+                    </button>
+                )}
+                {canEditUser && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEditUserLog?.(log.id);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-wider border border-zinc-700 text-zinc-300 bg-black/70 hover:text-white hover:border-blue-500"
+                    >
+                        <Edit2 size={12} /> 编辑
+                    </button>
+                )}
+                {onDelete && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(log.id);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-wider border border-zinc-700 text-zinc-300 bg-black/70 hover:text-white hover:border-red-500"
+                    >
+                        <Trash2 size={12} /> 删除
+                    </button>
+                )}
+            </div>
+        );
+    };
+
     // Unified Action Menu - Desktop Only
     const ActionMenu = () => {
-        const canEditAI = !isPlayer && log.rawResponse && onEditClick;
-        const canEditUser = isPlayer && onEditUserLog;
-        const hasActions = onDelete || canEditAI || canEditUser;
-
         if (!hasActions) return null;
 
         return (
@@ -100,18 +144,21 @@ export const LogEntryItem: React.FC<LogEntryProps> = ({
         return (
             <div className="group relative flex w-full justify-center my-4 animate-in fade-in duration-300">
                 <ActionMenu />
-                <div className="relative max-w-[90%] bg-zinc-900/80 border-x-4 border-zinc-700 px-6 py-2 shadow-sm backdrop-blur-sm">
-                    <div className="absolute inset-0 bg-stripes opacity-5 pointer-events-none" />
-                    <div className="flex items-center gap-3 text-center">
-                        {content.includes('好感度') || content.includes('up') ? (
-                            <Sparkles size={14} className="text-yellow-500 shrink-0" />
-                        ) : (
-                            <Terminal size={14} className="text-green-500 shrink-0" />
-                        )}
-                        <span className={`font-mono text-xs md:text-sm text-zinc-300 ${content.includes('好感度') ? 'text-yellow-100' : ''}`}>
-                            {content}
-                        </span>
+                <div className="flex flex-col items-center">
+                    <div className="relative max-w-[90%] bg-zinc-900/80 border-x-4 border-zinc-700 px-6 py-2 shadow-sm backdrop-blur-sm">
+                        <div className="absolute inset-0 bg-stripes opacity-5 pointer-events-none" />
+                        <div className="flex items-center gap-3 text-center">
+                            {content.includes('好感度') || content.includes('up') ? (
+                                <Sparkles size={14} className="text-yellow-500 shrink-0" />
+                            ) : (
+                                <Terminal size={14} className="text-green-500 shrink-0" />
+                            )}
+                            <span className={`font-mono text-xs md:text-sm text-zinc-300 ${content.includes('好感度') ? 'text-yellow-100' : ''}`}>
+                                {content}
+                            </span>
+                        </div>
                     </div>
+                    <MobileActions align="center" />
                 </div>
             </div>
         );
@@ -133,6 +180,7 @@ export const LogEntryItem: React.FC<LogEntryProps> = ({
                         {content}
                     </div>
                 </div>
+                <MobileActions align="left" />
             </div>
         );
     }
@@ -148,6 +196,7 @@ export const LogEntryItem: React.FC<LogEntryProps> = ({
                         <div className="bg-black border border-zinc-700 text-white px-4 py-3 rounded-2xl rounded-tr-none shadow-[0_4px_10px_rgba(0,0,0,0.5)] relative min-w-[60px] group-hover:border-blue-500 transition-colors">
                             <p className={`font-display tracking-wide whitespace-pre-wrap ${textSizeClass}`}>{content}</p>
                         </div>
+                        <MobileActions align="right" />
                     </div>
                     
                     <div className="w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-full border-2 border-zinc-600 overflow-hidden bg-black shadow-lg">
@@ -195,6 +244,7 @@ export const LogEntryItem: React.FC<LogEntryProps> = ({
                             {content}
                         </p>
                     </div>
+                    <MobileActions align="left" />
                 </div>
             </div>
         </div>
