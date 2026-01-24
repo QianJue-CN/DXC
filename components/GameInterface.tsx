@@ -46,7 +46,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
       currentOptions, lastAIResponse, isProcessing, isStreaming,
       draftInput, setDraftInput,
       memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
-      handlePlayerAction, handleSendMessage,
+      handlePlayerAction, handleSendMessage, handleCreateMoment, handleSilentWorldUpdate,
       stopInteraction, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite,
       manualSave, loadGame, handleReroll, handleDeleteTask
   } = useGameLogic(initialState, onExit);
@@ -115,6 +115,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
 
                         actionOptions={currentOptions}
                         fontSize={settings.fontSize}
+                        chatLogLimit={settings.chatLogLimit ?? 30}
                         enableCombatUI={settings.enableCombatUI} 
                         isHellMode={isHellMode}
                     />
@@ -179,6 +180,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         setDraftInput={setDraftInput}
                         actionOptions={currentOptions}
                         fontSize={settings.fontSize}
+                        chatLogLimit={settings.chatLogLimit ?? 30}
                         className="border-none w-full"
                         enableCombatUI={settings.enableCombatUI}
                         isHellMode={isHellMode}
@@ -271,6 +273,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             moments={gameState.动态}
             onSendMessage={(text, channel, target) => handleSendMessage(`[短信/${channel}] To ${target || 'Anyone'}: ${text}`)}
             onCreateGroup={(name, members) => addToQueue(`创建群组: ${name}, 成员: ${members.join(',')}`)}
+            onCreateMoment={(content, imageDesc) => handleCreateMoment(content, imageDesc)}
             onReroll={handleReroll}
         />
 
@@ -347,7 +350,9 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
         <DynamicWorldModal 
             isOpen={activeModal === 'WORLD'} 
             onClose={closeModal} 
-            worldState={gameState.世界} 
+            worldState={gameState.世界}
+            gameTime={gameState.游戏时间}
+            onSilentWorldUpdate={handleSilentWorldUpdate}
         />
 
         <MemorySummaryModal

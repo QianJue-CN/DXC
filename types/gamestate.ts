@@ -4,7 +4,7 @@ import { CharacterStats } from './character';
 import { LogEntry, MemorySystem } from './ai';
 import { InventoryItem } from './item';
 import { Confidant, PhoneMessage, MomentPost } from './social';
-import { WorldState, WorldMapData, GeoPoint, FamiliaState, NPCState } from './world';
+import { WorldState, WorldMapData, GeoPoint, FamiliaState } from './world';
 import { Task, StoryState, Contract } from './story';
 import { CombatState } from './combat';
 import { Skill } from './character';
@@ -45,7 +45,6 @@ export interface GameState {
   世界: WorldState;
   地图: WorldMapData;
   
-  NPC状态: NPCState[];
   任务: Task[];
   技能: Skill[];
   剧情: StoryState;

@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Target, Plus, Minus, Layers, Eye, EyeOff, Map as MapIcon, Info, X, ChevronDown } from 'lucide-react';
 import { WorldMapData, GeoPoint, Confidant } from '../../types';
+import { drawWorldMapCanvas, resizeCanvasToContainer } from '../../utils/mapCanvas';
 
 interface MobileMapViewProps {
   worldMap: WorldMapData;
@@ -35,6 +36,7 @@ export const MobileMapView: React.FC<MobileMapViewProps> = ({
   const [showNPCs, setShowNPCs] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Initial Data (Fallback if undefined)
   const mapData = worldMap || { 
@@ -47,6 +49,31 @@ export const MobileMapView: React.FC<MobileMapViewProps> = ({
       setViewingFloor(floor);
       setTimeout(() => centerOnPlayer(), 100);
   }, [currentPos, floor]); 
+
+  useEffect(() => {
+      const draw = () => {
+          const canvas = canvasRef.current;
+          const container = containerRef.current;
+          if (!canvas || !container) return;
+          resizeCanvasToContainer(canvas, container);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          drawWorldMapCanvas(ctx, mapData, {
+              floor: viewingFloor,
+              scale,
+              offset,
+              showTerritories,
+              showNPCs,
+              showPlayer: viewingFloor === floor,
+              showLabels: false,
+              currentPos,
+              confidants
+          });
+      };
+      draw();
+      window.addEventListener('resize', draw);
+      return () => window.removeEventListener('resize', draw);
+  }, [mapData, scale, offset, viewingFloor, showTerritories, showNPCs, floor, currentPos, confidants]);
 
   // --- Zoom Logic (Visual Center) ---
   const applyZoom = (deltaScale: number) => {
@@ -97,9 +124,6 @@ export const MobileMapView: React.FC<MobileMapViewProps> = ({
       }
   };
 
-  // FIX: Using Chinese keys from GameState
-  const visibleEntities = confidants.filter(c => (c.是否在场 || c.特别关注 || c.是否队友) && c.坐标);
-
   return (
     <div className="w-full h-full relative bg-[#050a14] overflow-hidden flex flex-col font-sans">
         
@@ -111,79 +135,7 @@ export const MobileMapView: React.FC<MobileMapViewProps> = ({
             onTouchMove={handleTouchMove}
             onTouchEnd={() => setIsDragging(false)}
         >
-            <svg 
-                viewBox={`0 0 ${mapData.config.width} ${mapData.config.height}`} 
-                className="origin-top-left will-change-transform"
-                style={{
-                    transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                    width: `${mapData.config.width}px`,
-                    height: `${mapData.config.height}px`
-                }}
-            >
-                {/* 0. Background Grid */}
-                <rect x="0" y="0" width={mapData.config.width} height={mapData.config.height} fill="#020408" />
-                
-                {/* 1. Territories */}
-                {showTerritories && mapData.territories.filter(t => (t.floor || 0) === viewingFloor).map(t => (
-                    <path
-                        key={t.id}
-                        d={t.boundary}
-                        fill={t.color}
-                        fillOpacity={t.opacity || 0.2}
-                        stroke={t.color}
-                        strokeWidth="10" 
-                        strokeDasharray="100,50"
-                    />
-                ))}
-
-                {/* 2. Terrain */}
-                {mapData.terrain.filter(f => (f.floor || 0) === viewingFloor).map(feat => (
-                    <path
-                        key={feat.id}
-                        d={feat.path}
-                        fill={feat.color}
-                        stroke={feat.strokeColor || 'none'}
-                        strokeWidth={feat.strokeWidth ? Math.min(feat.strokeWidth, 20) : 0}
-                    />
-                ))}
-
-                {/* 4. Locations */}
-                {mapData.surfaceLocations.filter(l => (l.floor || 0) === viewingFloor).map(loc => (
-                    <g key={loc.id}>
-                        <circle 
-                            cx={loc.coordinates.x} 
-                            cy={loc.coordinates.y} 
-                            r={loc.radius} 
-                            fill={loc.type === 'GUILD' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(251, 191, 36, 0.05)'} 
-                            stroke={loc.type === 'GUILD' ? '#3b82f6' : '#fbbf24'}
-                            strokeWidth="5"
-                        />
-                        <circle cx={loc.coordinates.x} cy={loc.coordinates.y} r="50" fill="#000" stroke="#fff" strokeWidth="5" />
-                    </g>
-                ))}
-
-                {/* 5. NPCs - Using Chinese Keys */}
-                {showNPCs && visibleEntities.map(npc => npc.坐标 && (
-                    <g key={npc.id} className="animate-float">
-                        <rect 
-                           x={npc.坐标.x - 30} 
-                           y={npc.坐标.y - 30} 
-                           width="60" height="60" 
-                           fill={npc.是否队友 ? '#9333ea' : '#ec4899'} 
-                           stroke="white" strokeWidth="5" 
-                           transform={`rotate(45 ${npc.坐标.x} ${npc.坐标.y})`}
-                       />
-                    </g>
-                ))}
-
-                {/* 6. Player - Only show if on same floor */}
-                {viewingFloor === floor && ( 
-                    <g className="animate-pulse" style={{ transform: `translate(${currentPos.x}px, ${currentPos.y}px)` }}>
-                        <circle r="60" fill="#22c55e" stroke="#fff" strokeWidth="10" />
-                        <circle r="150" fill="none" stroke="#22c55e" strokeWidth="5" strokeDasharray="30,10" className="animate-spin-slow" />
-                    </g>
-                )}
-            </svg>
+            <canvas ref={canvasRef} className="w-full h-full" />
         </div>
 
         {/* --- UI Overlays --- */}

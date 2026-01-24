@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Map as MapIcon, Target, Plus, Minus, RotateCcw, Info, Layers, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { WorldMapData, GeoPoint, Confidant } from '../../../types';
+import { drawWorldMapCanvas, resizeCanvasToContainer } from '../../../utils/mapCanvas';
 
 interface MapModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const MapModal: React.FC<MapModalProps> = ({
   const [hoverInfo, setHoverInfo] = useState<{title: string, sub?: string, desc?: string, x: number, y: number} | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Initial Data
   const mapData = worldMap || { 
@@ -56,6 +58,32 @@ export const MapModal: React.FC<MapModalProps> = ({
           setTimeout(() => centerOnPlayer(), 100);
       }
   }, [isOpen, floor]);
+
+  useEffect(() => {
+      if (!isOpen) return;
+      const draw = () => {
+          const canvas = canvasRef.current;
+          const container = containerRef.current;
+          if (!canvas || !container) return;
+          resizeCanvasToContainer(canvas, container);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          drawWorldMapCanvas(ctx, mapData, {
+              floor: viewingFloor,
+              scale,
+              offset,
+              showTerritories,
+              showNPCs,
+              showPlayer: viewingFloor === floor,
+              showLabels: true,
+              currentPos,
+              confidants
+          });
+      };
+      draw();
+      window.addEventListener('resize', draw);
+      return () => window.removeEventListener('resize', draw);
+  }, [isOpen, mapData, scale, offset, viewingFloor, showTerritories, showNPCs, floor, currentPos, confidants]);
 
   if (!isOpen) return null;
 
@@ -112,13 +140,35 @@ export const MapModal: React.FC<MapModalProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
       if (isDragging) {
           setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+      } else {
+          updateHoverInfo(e.clientX, e.clientY);
       }
   };
 
-  // FIX: Explicitly check chinese keys '是否在场' and '坐标'
-  const visibleEntities = confidants.filter(c => (c.是否在场 || c.特别关注 || c.是否队友) && c.坐标);
-
-  // ... (renderSurfaceMap logic remains mostly the same, ensuring c.坐标 is used)
+  const updateHoverInfo = (clientX: number, clientY: number) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mapX = (clientX - rect.left - offset.x) / scale;
+      const mapY = (clientY - rect.top - offset.y) / scale;
+      const loc = mapData.surfaceLocations
+          .filter(l => (l.floor || 0) === viewingFloor)
+          .find(l => {
+              const dx = mapX - l.coordinates.x;
+              const dy = mapY - l.coordinates.y;
+              return Math.hypot(dx, dy) <= l.radius;
+          });
+      if (loc) {
+          setHoverInfo({
+              title: loc.name,
+              sub: loc.type === 'FAMILIA_HOME' ? '眷族据点' : loc.type === 'SHOP' ? '商店' : '地标',
+              desc: loc.description,
+              x: clientX,
+              y: clientY
+          });
+      } else {
+          setHoverInfo(null);
+      }
+  };
 
   const renderSurfaceMap = () => (
       <div 
@@ -127,100 +177,10 @@ export const MapModal: React.FC<MapModalProps> = ({
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={() => setIsDragging(false)}
-          onMouseLeave={() => setIsDragging(false)}
+          onMouseLeave={() => { setIsDragging(false); setHoverInfo(null); }}
           onWheel={handleWheel}
       >
-          <svg 
-              viewBox={`0 0 ${mapData.config.width} ${mapData.config.height}`} 
-              className="absolute top-0 left-0 origin-top-left will-change-transform"
-              style={{
-                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
-                  width: `${mapData.config.width}px`,
-                  height: `${mapData.config.height}px`
-              }}
-          >
-              {/* 0. Background Grid */}
-              <rect x="0" y="0" width={mapData.config.width} height={mapData.config.height} fill="#020408" />
-              
-              {/* 1. Territories */}
-              {showTerritories && mapData.territories.filter(t => (t.floor || 0) === viewingFloor).map(t => (
-                  <path
-                      key={t.id}
-                      d={t.boundary}
-                      fill={t.color}
-                      fillOpacity={t.opacity || 0.2}
-                      stroke={t.color}
-                      strokeWidth="10" 
-                      strokeDasharray="100,50"
-                      className="transition-opacity duration-300 hover:fill-opacity-40 cursor-pointer"
-                      onMouseEnter={(e) => setHoverInfo({ title: t.name, sub: '区域', desc: '势力控制范围', x: e.clientX, y: e.clientY })}
-                      onMouseLeave={() => setHoverInfo(null)}
-                  />
-              ))}
-
-              {/* 2. Terrain */}
-              {mapData.terrain.filter(f => (f.floor || 0) === viewingFloor).map(feat => (
-                  <path
-                      key={feat.id}
-                      d={feat.path}
-                      fill={feat.color}
-                      stroke={feat.strokeColor || 'none'}
-                      strokeWidth={feat.strokeWidth ? Math.min(feat.strokeWidth, 20) : 0}
-                  />
-              ))}
-
-              {/* 4. POI Locations */}
-              {mapData.surfaceLocations.filter(l => (l.floor || 0) === viewingFloor).map(loc => (
-                  <g 
-                      key={loc.id}
-                      className="cursor-pointer group"
-                      onMouseEnter={(e) => setHoverInfo({ title: loc.name, sub: loc.type === 'FAMILIA_HOME' ? '眷族据点' : loc.type === 'SHOP' ? '商店' : '地标', desc: loc.description, x: e.clientX, y: e.clientY })}
-                      onMouseLeave={() => setHoverInfo(null)}
-                  >
-                      <circle 
-                        cx={loc.coordinates.x} 
-                        cy={loc.coordinates.y} 
-                        r={loc.radius} 
-                        fill={loc.type === 'GUILD' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(251, 191, 36, 0.05)'} 
-                        stroke={loc.type === 'GUILD' ? '#3b82f6' : '#fbbf24'}
-                        strokeWidth="5"
-                        className="opacity-50 group-hover:opacity-100 transition-opacity"
-                      />
-                      <circle cx={loc.coordinates.x} cy={loc.coordinates.y} r="50" fill="#000" stroke="#fff" strokeWidth="5" />
-                  </g>
-              ))}
-
-              {/* 5. NPCs - Use Chinese Keys */}
-              {showNPCs && visibleEntities.map(npc => npc.坐标 && (
-                  <g key={npc.id} className="animate-float">
-                       <rect 
-                           x={npc.坐标.x - 30} 
-                           y={npc.坐标.y - 30} 
-                           width="60" height="60" 
-                           fill={npc.是否队友 ? '#9333ea' : '#ec4899'} 
-                           stroke="white" strokeWidth="5" 
-                           transform={`rotate(45 ${npc.坐标.x} ${npc.坐标.y})`}
-                       />
-                       {/* Label for NPC */}
-                       <text 
-                           x={npc.坐标.x} y={npc.坐标.y - 50} 
-                           fill="white" fontSize="100" textAnchor="middle" 
-                           style={{ textShadow: "2px 2px 4px #000" }}
-                       >
-                           {npc.姓名}
-                       </text>
-                  </g>
-              ))}
-
-              {/* 6. Player Marker */}
-              {viewingFloor === floor && (
-                  <g className="animate-pulse" style={{ transition: 'transform 0.5s ease-out', transform: `translate(${currentPos.x}px, ${currentPos.y}px)` }}>
-                      <circle r="60" fill="#22c55e" stroke="#fff" strokeWidth="10" />
-                      <circle r="150" fill="none" stroke="#22c55e" strokeWidth="5" strokeDasharray="30,10" className="animate-spin-slow" />
-                  </g>
-              )}
-
-          </svg>
+          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       </div>
   );
 

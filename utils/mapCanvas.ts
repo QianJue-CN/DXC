@@ -1,0 +1,146 @@
+import { WorldMapData, Confidant, GeoPoint } from "../types";
+
+export interface MapDrawOptions {
+    floor: number;
+    scale: number;
+    offset: { x: number; y: number };
+    showTerritories: boolean;
+    showNPCs: boolean;
+    showPlayer: boolean;
+    showLabels?: boolean;
+    currentPos: GeoPoint;
+    confidants: Confidant[];
+}
+
+export const resizeCanvasToContainer = (canvas: HTMLCanvasElement, container: HTMLDivElement | null) => {
+    if (!container) return;
+    const dpr = window.devicePixelRatio || 1;
+    const { clientWidth, clientHeight } = container;
+    const width = Math.max(1, Math.floor(clientWidth * dpr));
+    const height = Math.max(1, Math.floor(clientHeight * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+    }
+};
+
+const getVisibleEntities = (confidants: Confidant[]) =>
+    confidants.filter(c => (c.是否在场 || c.特别关注 || c.是否队友) && c.坐标);
+
+export const drawWorldMapCanvas = (
+    ctx: CanvasRenderingContext2D,
+    mapData: WorldMapData,
+    options: MapDrawOptions
+) => {
+    const { floor, scale, offset, showTerritories, showNPCs, showPlayer, showLabels, currentPos, confidants } = options;
+    const canvas = ctx.canvas;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale * dpr, 0, 0, scale * dpr, offset.x * dpr, offset.y * dpr);
+
+    // Background
+    ctx.fillStyle = "#020408";
+    ctx.fillRect(0, 0, mapData.config.width, mapData.config.height);
+
+    // Territories
+    if (showTerritories) {
+        const territories = mapData.territories.filter(t => (t.floor || 0) === floor);
+        territories.forEach(t => {
+            const path = new Path2D(t.boundary);
+            ctx.save();
+            ctx.globalAlpha = t.opacity || 0.2;
+            ctx.fillStyle = t.color;
+            ctx.fill(path);
+            ctx.restore();
+            ctx.save();
+            ctx.strokeStyle = t.color;
+            ctx.lineWidth = 10;
+            ctx.setLineDash([100, 50]);
+            ctx.stroke(path);
+            ctx.restore();
+        });
+    }
+
+    // Terrain
+    mapData.terrain.filter(f => (f.floor || 0) === floor).forEach(feat => {
+        const path = new Path2D(feat.path);
+        ctx.fillStyle = feat.color;
+        ctx.fill(path);
+        if (feat.strokeColor && feat.strokeWidth) {
+            ctx.strokeStyle = feat.strokeColor;
+            ctx.lineWidth = Math.min(feat.strokeWidth, 20);
+            ctx.stroke(path);
+        }
+    });
+
+    // Locations
+    mapData.surfaceLocations.filter(l => (l.floor || 0) === floor).forEach(loc => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(loc.coordinates.x, loc.coordinates.y, loc.radius, 0, Math.PI * 2);
+        ctx.fillStyle = loc.type === 'GUILD' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(251, 191, 36, 0.05)';
+        ctx.strokeStyle = loc.type === 'GUILD' ? '#3b82f6' : '#fbbf24';
+        ctx.lineWidth = 5;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(loc.coordinates.x, loc.coordinates.y, 50, 0, Math.PI * 2);
+        ctx.fillStyle = "#000";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 5;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    });
+
+    // NPCs
+    if (showNPCs) {
+        const entities = getVisibleEntities(confidants).filter(npc => npc.坐标);
+        entities.forEach(npc => {
+            if (!npc.坐标) return;
+            ctx.save();
+            ctx.translate(npc.坐标.x, npc.坐标.y);
+            ctx.rotate(Math.PI / 4);
+            ctx.fillStyle = npc.是否队友 ? '#9333ea' : '#ec4899';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 5;
+            ctx.fillRect(-30, -30, 60, 60);
+            ctx.strokeRect(-30, -30, 60, 60);
+            ctx.restore();
+
+            if (showLabels) {
+                ctx.save();
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "100px sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                ctx.fillText(npc.姓名, npc.坐标.x, npc.坐标.y - 50);
+                ctx.restore();
+            }
+        });
+    }
+
+    // Player marker
+    if (showPlayer) {
+        ctx.save();
+        ctx.translate(currentPos.x, currentPos.y);
+        ctx.beginPath();
+        ctx.arc(0, 0, 60, 0, Math.PI * 2);
+        ctx.fillStyle = "#22c55e";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 10;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 150, 0, Math.PI * 2);
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 5;
+        ctx.setLineDash([30, 10]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+};

@@ -77,7 +77,7 @@ export interface WorldMapConfig {
   height: number;
 }
 
-// Keep technical map data in English for compatibility with SVG renderer
+// Keep technical map data in English for compatibility with the map renderer
 export interface WorldMapData {
     config: WorldMapConfig;
     factions: MapFaction[];
@@ -104,15 +104,4 @@ export interface FamiliaState {
   资金: number;
   设施状态: any;
   仓库: InventoryItem[]; 
-}
-
-export interface NPCState {
-  id: string;
-  姓名: string;
-  位置: string;
-  当前行动: string;
-  内心想法: string;
-  状态: 'idle' | 'alert' | 'combat' | 'talking';
-  性别?: string;
-  简介?: string;
 }

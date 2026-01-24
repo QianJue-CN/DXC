@@ -9,6 +9,8 @@ interface DynamicWorldModalProps {
   onClose: () => void;
   worldState?: WorldState;
   npcStates?: any[];
+  gameTime?: string;
+  onSilentWorldUpdate?: () => void;
 }
 
 type WorldTab = 'GUILD' | 'DENATUS' | 'RUMORS';
@@ -16,11 +18,23 @@ type WorldTab = 'GUILD' | 'DENATUS' | 'RUMORS';
 export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({ 
     isOpen, 
     onClose,
-    worldState
+    worldState,
+    gameTime,
+    onSilentWorldUpdate
 }) => {
   const [activeTab, setActiveTab] = useState<WorldTab>('GUILD');
 
-  if (!isOpen) return null;
+  const parseGameTime = (input?: string) => {
+      if (!input) return null;
+      const dayMatch = input.match(/第(\d+)日/);
+      const timeMatch = input.match(/(\d{1,2}):(\d{2})/);
+      if (!dayMatch || !timeMatch) return null;
+      const day = parseInt(dayMatch[1], 10);
+      const hour = parseInt(timeMatch[1], 10);
+      const minute = parseInt(timeMatch[2], 10);
+      if ([day, hour, minute].some(n => Number.isNaN(n))) return null;
+      return day * 24 * 60 + hour * 60 + minute;
+  };
 
   const safeWorldState = worldState || {
       异常指数: 0,
@@ -29,6 +43,12 @@ export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({
       街头传闻: [],
       下次更新: "未知"
   };
+
+  const nowValue = parseGameTime(gameTime);
+  const nextValue = parseGameTime(safeWorldState.下次更新);
+  const isUpdateDue = nowValue !== null && nextValue !== null ? nowValue >= nextValue : false;
+
+  if (!isOpen) return null;
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in zoom-in-95 duration-200">
@@ -76,9 +96,23 @@ export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({
             <div className="flex-1 p-4 md:p-8 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-[#0f172a] relative overflow-y-auto custom-scrollbar pb-32 md:pb-8">
                 
                 {/* Next Update Indicator */}
-                <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full border border-blue-900/50">
+                <div className="absolute top-4 right-4 flex items-center gap-3 bg-black/50 px-3 py-2 rounded border border-blue-900/50">
                     <Clock size={12} className="text-blue-400" />
-                    <span className="text-[10px] text-zinc-400 font-mono">下次更新: {safeWorldState.下次更新 || "计算中..."}</span>
+                    <div className="flex flex-col leading-tight">
+                        <span className="text-[10px] text-zinc-400 font-mono">当前时间: {gameTime || "未知"}</span>
+                        <span className="text-[10px] text-zinc-400 font-mono">下次更新: {safeWorldState.下次更新 || "计算中..."}</span>
+                        <span className={`text-[10px] font-mono ${isUpdateDue ? 'text-green-400' : 'text-zinc-500'}`}>
+                            {isUpdateDue ? '已到更新时间' : '监测中'}
+                        </span>
+                    </div>
+                    {isUpdateDue && onSilentWorldUpdate && (
+                        <button
+                            onClick={onSilentWorldUpdate}
+                            className="ml-2 px-2 py-1 text-[10px] uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-500"
+                        >
+                            静默更新
+                        </button>
+                    )}
                 </div>
 
                 {activeTab === 'GUILD' && <GuildPanel world={safeWorldState} />}

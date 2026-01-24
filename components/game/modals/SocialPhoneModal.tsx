@@ -13,6 +13,7 @@ interface SocialPhoneModalProps {
   initialTab?: 'CHAT' | 'CONTACTS' | 'MOMENTS';
   onSendMessage: (text: string, channel: 'private' | 'group', target?: string) => void;
   onCreateGroup: (name: string, members: string[]) => void;
+  onCreateMoment?: (content: string, imageDesc?: string) => void;
   onReroll?: () => void;
 }
 
@@ -28,6 +29,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
     initialTab = 'CHAT',
     onSendMessage,
     onCreateGroup,
+    onCreateMoment,
     onReroll
 }) => {
   const [activeTab, setActiveTab] = useState<PhoneTab>(initialTab);
@@ -43,6 +45,8 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
   const [viewingContact, setViewingContact] = useState<Confidant | null>(null); 
   const [momentsFilter, setMomentsFilter] = useState<string | null>(null); 
   const [inputText, setInputText] = useState('');
+  const [momentText, setMomentText] = useState('');
+  const [momentImage, setMomentImage] = useState('');
   
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +63,18 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
   }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
+
+  const formatDay = (timestamp?: string) => {
+      if (!timestamp) return '';
+      const match = timestamp.match(/第\d+日/);
+      return match ? match[0] : '';
+  };
+
+  const formatTime = (timestamp?: string) => {
+      if (!timestamp) return '??:??';
+      const match = timestamp.match(/(\d{1,2}:\d{2})/);
+      return match ? match[1] : timestamp;
+  };
 
   // Filter contacts who have "hasContactInfo" true
   const validContacts = contacts.filter(c => c.已交换联系方式);
@@ -129,15 +145,12 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
       return Array.from(groups);
   };
 
-  // Moment Visibility: Only show if poster is in validContacts (Friend) or is Public/System
   const getFilteredMoments = () => {
-      let visible = moments.filter(m => {
-          const isFriend = validContacts.some(c => c.姓名 === m.发布者);
-          const isSystem = m.发布者 === '公会公告' || m.发布者 === '王国新闻';
-          const isMe = m.发布者 === 'Player';
-          return isFriend || isSystem || isMe;
+      let visible = [...moments];
+      visible.sort((a, b) => {
+          if (a.timestampValue && b.timestampValue) return a.timestampValue - b.timestampValue;
+          return 0;
       });
-
       if (momentsFilter) {
           return visible.filter(m => m.发布者 === momentsFilter);
       }
@@ -163,6 +176,54 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
       setViewingChatTarget(newGroupName);
       setNewGroupMembers([]);
       setNewGroupName('');
+  };
+
+  const filteredMessages = getFilteredMessages();
+
+  const renderChatMessages = () => {
+      if (filteredMessages.length === 0) {
+          return <div className="text-center text-zinc-400 text-xs italic mt-10">暂无消息记录</div>;
+      }
+      let currentDay = '';
+      return filteredMessages.map((msg, idx) => {
+          const isMe = msg.发送者 === 'Joker' || msg.发送者 === 'Player';
+          const dayLabel = formatDay(msg.时间戳);
+          const timeLabel = formatTime(msg.时间戳);
+          const showDay = dayLabel && dayLabel !== currentDay;
+          if (showDay) currentDay = dayLabel;
+          return (
+              <React.Fragment key={`${msg.id}_${idx}`}>
+                  {showDay && (
+                      <div className="text-center text-[10px] text-zinc-500 font-mono uppercase py-1">
+                          {dayLabel}
+                      </div>
+                  )}
+                  <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-2.5 text-xs shadow-sm relative
+                          ${isMe 
+                              ? 'bg-black text-white rounded-l-xl rounded-br-sm' 
+                              : 'bg-white text-black border border-zinc-300 rounded-r-xl rounded-bl-sm'
+                          }
+                      `}>
+                          {!isMe && chatType === 'GROUP' && (
+                              <div className="font-bold text-[9px] text-blue-600 mb-0.5 uppercase">{msg.发送者}</div>
+                          )}
+                          <div>{msg.内容}</div>
+                          <div className={`mt-1 text-[9px] ${isMe ? 'text-zinc-400' : 'text-zinc-500'} font-mono text-right`}>
+                              {timeLabel}
+                          </div>
+                      </div>
+                  </div>
+              </React.Fragment>
+          );
+      });
+  };
+
+  const handleCreateMoment = () => {
+      if (!momentText.trim()) return;
+      onCreateMoment?.(momentText.trim(), momentImage.trim() || undefined);
+      setMomentText('');
+      setMomentImage('');
   };
 
   return (
@@ -253,24 +314,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                     </div>
                  ) : viewingChatTarget ? (
                      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3 bg-zinc-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
-                         {getFilteredMessages().length > 0 ? getFilteredMessages().map(msg => {
-                             const isMe = msg.发送者 === 'Joker' || msg.发送者 === 'Player';
-                             return (
-                                 <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                     <div className={`max-w-[85%] p-2.5 text-xs shadow-sm relative
-                                         ${isMe 
-                                             ? 'bg-black text-white rounded-l-xl rounded-br-sm' 
-                                             : 'bg-white text-black border border-zinc-300 rounded-r-xl rounded-bl-sm'
-                                         }
-                                     `}>
-                                         {!isMe && chatType === 'GROUP' && (
-                                             <div className="font-bold text-[9px] text-blue-600 mb-0.5 uppercase">{msg.发送者}</div>
-                                         )}
-                                         {msg.内容}
-                                     </div>
-                                 </div>
-                             );
-                         }) : <div className="text-center text-zinc-400 text-xs italic mt-10">暂无消息记录</div>}
+                         {renderChatMessages()}
                          <div ref={chatEndRef} />
                      </div>
                  ) : (
@@ -384,6 +428,30 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                          </div>
                      )}
 
+                     <div className="bg-white border-b border-zinc-200 p-4">
+                         <div className="text-[10px] text-zinc-500 font-bold uppercase mb-2">发布动态</div>
+                         <textarea
+                             value={momentText}
+                             onChange={(e) => setMomentText(e.target.value)}
+                             placeholder="分享点什么..."
+                             className="w-full h-20 border border-zinc-200 p-2 text-xs resize-none outline-none focus:border-blue-500"
+                         />
+                         <input
+                             value={momentImage}
+                             onChange={(e) => setMomentImage(e.target.value)}
+                             placeholder="图片描述 (可选)"
+                             className="w-full mt-2 border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500"
+                         />
+                         <div className="flex justify-end mt-2">
+                             <button
+                                 onClick={handleCreateMoment}
+                                 className="px-4 py-2 bg-black text-white text-xs font-bold uppercase hover:bg-blue-600"
+                             >
+                                 发布
+                             </button>
+                         </div>
+                     </div>
+
                      <div className="space-y-4 p-4">
                          {getFilteredMoments().length > 0 ? getFilteredMoments().map((post) => (
                              <div key={post.id} className="bg-white border border-zinc-300 p-4 shadow-sm">
@@ -393,7 +461,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                                      </div>
                                      <div>
                                          <div className="font-bold text-sm leading-none">{post.发布者}</div>
-                                         <div className="text-[10px] text-zinc-400 font-mono uppercase">{post.时间戳}</div>
+                                         <div className="text-[10px] text-zinc-400 font-mono uppercase">{post.时间戳 || '未知'}</div>
                                      </div>
                                  </div>
                                  
@@ -417,7 +485,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                                      </button>
                                  </div>
                              </div>
-                         )) : <EmptyState icon={<Lock size={40} />} text="朋友圈为空或无权限" />}
+                         )) : <EmptyState icon={<Lock size={40} />} text="暂无动态" />}
                      </div>
                  </div>
              )}

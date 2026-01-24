@@ -34,6 +34,7 @@ interface CenterPanelProps {
 
   actionOptions?: ActionOption[];
   fontSize?: 'small' | 'medium' | 'large'; 
+  chatLogLimit?: number | null;
   className?: string;
   enableCombatUI?: boolean;
   isHellMode?: boolean;
@@ -66,6 +67,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
 
     actionOptions = [],
     fontSize = 'medium',
+    chatLogLimit = 30,
     className = '',
     enableCombatUI = true,
     isHellMode
@@ -74,6 +76,8 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editMode, setEditMode] = useState<'AI_RAW' | 'USER_TEXT'>('AI_RAW');
+  const [jumpTarget, setJumpTarget] = useState('');
+  const [jumpHint, setJumpHint] = useState('');
   
   // Refs for scrolling
   const endRef = useRef<HTMLDivElement>(null);
@@ -96,6 +100,29 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
   const marqueeTextClass = isHellMode ? 'text-red-200' : 'text-white';
   const marqueeDuplicateClass = isHellMode ? 'text-red-300/70' : 'text-white/70';
   const logPaddingClass = actionOptions.length > 0 ? 'pb-48 md:pb-48' : 'pb-12 md:pb-16';
+
+  const totalLogs = logs.length;
+  const limit = chatLogLimit === null ? null : (typeof chatLogLimit === 'number' ? chatLogLimit : 30);
+  const startIndex = limit ? Math.max(0, totalLogs - limit) : 0;
+  const visibleLogs = logs.slice(startIndex);
+
+  const handleJump = () => {
+      const target = parseInt(jumpTarget, 10);
+      if (!target || target < 1 || target > totalLogs) {
+          setJumpHint(`范围: 1-${totalLogs || 1}`);
+          return;
+      }
+      if (target <= startIndex) {
+          setJumpHint('目标楼层未渲染');
+          return;
+      }
+      const targetLog = logs[target - 1];
+      const el = logRefs.current.get(targetLog.id);
+      if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setJumpHint(`已跳转: ${target}`);
+      }
+  };
 
   // Scroll Logic
   useLayoutEffect(() => {
@@ -122,6 +149,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
 
       prevProcessing.current = !!isProcessing;
       prevLogsLength.current = logs.length;
+      setJumpHint('');
   }, [isProcessing, isStreaming, logs, lastRawResponse]); 
 
   // Fix: Scroll to bottom when exiting combat UI
@@ -236,13 +264,42 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
           </div>
       )}
 
+      {totalLogs > 0 && (
+          <div className="absolute top-4 right-4 z-30 flex flex-col gap-2 bg-black/80 border border-zinc-700 px-3 py-2 text-[10px] text-zinc-300">
+              <div className="flex items-center gap-2">
+                  <span className="uppercase tracking-widest">楼层跳转</span>
+                  <span className="text-zinc-500">{startIndex + 1}-{totalLogs}/{totalLogs}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                  <input
+                      type="number"
+                      min="1"
+                      max={totalLogs}
+                      value={jumpTarget}
+                      onChange={(e) => setJumpTarget(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleJump()}
+                      className="w-16 bg-zinc-900 border border-zinc-700 text-zinc-200 px-2 py-1 text-[10px] font-mono outline-none"
+                      placeholder="楼层"
+                  />
+                  <button
+                      onClick={handleJump}
+                      className="px-2 py-1 bg-blue-600 text-white text-[10px] uppercase tracking-widest hover:bg-blue-500"
+                  >
+                      跳转
+                  </button>
+              </div>
+              {jumpHint && <div className="text-[10px] text-zinc-500">{jumpHint}</div>}
+          </div>
+      )}
+
       {/* Logs Scroll Area */}
       <div 
         ref={containerRef}
         className={`flex-1 overflow-y-auto p-4 md:p-10 z-10 custom-scrollbar scroll-smooth ${logPaddingClass}`}
       >
-        {logs.map((log, index) => {
-            const prevLog = logs[index - 1];
+        {visibleLogs.map((log, index) => {
+            const globalIndex = startIndex + index;
+            const prevLog = logs[globalIndex - 1];
             const isNewTurn = log.turnIndex !== undefined && log.turnIndex > 0 && (!prevLog || log.turnIndex !== prevLog.turnIndex);
             
             const showAiToolbar = !!log.rawResponse;
@@ -252,7 +309,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
                     {isNewTurn && <TurnDivider turn={log.turnIndex} />}
                     <LogEntryItem 
                         log={log} 
-                        isLatest={index === logs.length - 1} 
+                        isLatest={globalIndex === logs.length - 1} 
                         playerStats={playerStats} 
                         confidants={confidants}
                         onEditClick={handleEditAIClick}

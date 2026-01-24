@@ -699,6 +699,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const renderVisualsView = () => (
       <div className="space-y-6 animate-in slide-in-from-right-8 duration-300 overflow-y-auto custom-scrollbar">
           <SectionHeader title="视觉表现 & 交互" icon={<Eye />} />
+          {(() => {
+              const isUnlimited = formData.chatLogLimit === null;
+              return (
+                  <div className="bg-white p-6 border border-zinc-200 shadow-sm mb-4">
+                      <h4 className="font-bold uppercase text-zinc-500 mb-4 flex items-center gap-2">
+                          <LayoutList size={16} /> 聊天楼层显示
+                      </h4>
+                      <div className="flex items-center justify-between p-4 bg-zinc-50 border border-zinc-200 mb-3">
+                          <div>
+                              <h5 className="font-bold text-sm text-black">限制渲染条数</h5>
+                              <p className="text-[10px] text-zinc-500">默认只渲染最后 30 条聊天楼层，可切换为无限制。</p>
+                          </div>
+                          <button 
+                              onClick={() => setFormData(prev => ({...prev, chatLogLimit: isUnlimited ? 30 : null}))}
+                              className={`text-2xl transition-colors ${isUnlimited ? 'text-zinc-300' : 'text-green-600'}`}
+                          >
+                              {isUnlimited ? <ToggleLeft size={36}/> : <ToggleRight size={36}/>}
+                          </button>
+                      </div>
+                      <div className="flex items-center gap-4">
+                          <input 
+                              type="number"
+                              min="1"
+                              max="500"
+                              disabled={isUnlimited}
+                              value={isUnlimited ? '' : (formData.chatLogLimit ?? 30)}
+                              onChange={(e) => setFormData({...formData, chatLogLimit: parseInt(e.target.value) || 30})}
+                              className="w-32 bg-zinc-50 border-b-2 border-zinc-300 p-2 font-mono text-sm disabled:opacity-50"
+                          />
+                          <span className="text-xs text-zinc-500">条 / 设为无限制可显示全部历史楼层</span>
+                      </div>
+                  </div>
+              );
+          })()}
           
           {/* AI Streaming Toggle (New) */}
           <div className="bg-white p-6 border border-zinc-200 shadow-sm mb-4">

@@ -117,6 +117,7 @@ export interface AppSettings {
   fontSize: 'small' | 'medium' | 'large';
   enableActionOptions: boolean; // NEW: Toggle for Action Suggestions
   enableStreaming: boolean; // NEW: Toggle for AI Streaming
+  chatLogLimit?: number | null; // UI render limit, null for unlimited
   promptModules: PromptModule[];
   aiConfig: GlobalAISettings;
   memoryConfig: MemoryConfig;

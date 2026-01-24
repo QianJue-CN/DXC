@@ -265,7 +265,6 @@ export const createNewGameState = (
             街头传闻: initialRumors,
             下次更新: "第1日 12:00"
         },
-        NPC状态: [], 
         任务: initialTasks,
         技能: [],
         剧情: {

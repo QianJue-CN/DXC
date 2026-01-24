@@ -77,8 +77,16 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
  * 社交与NPC上下文构建
  */
 export const constructSocialContext = (confidants: Confidant[], params: any): string => {
-    const specialMemoryDepth = typeof params.specialMemoryLimit === 'number' ? params.specialMemoryLimit : 10; 
-    const normalMemoryDepth = typeof params.normalMemoryLimit === 'number' ? params.normalMemoryLimit : 30; 
+    const presentMemoryDepth = typeof params.presentMemoryLimit === 'number'
+        ? params.presentMemoryLimit
+        : (typeof params.normalMemoryLimit === 'number' ? params.normalMemoryLimit : 30);
+    const absentMemoryDepth = typeof params.absentMemoryLimit === 'number' ? params.absentMemoryLimit : 6;
+    const specialPresentMemoryDepth = typeof params.specialPresentMemoryLimit === 'number'
+        ? params.specialPresentMemoryLimit
+        : (typeof params.specialMemoryLimit === 'number' ? params.specialMemoryLimit : presentMemoryDepth);
+    const specialAbsentMemoryDepth = typeof params.specialAbsentMemoryLimit === 'number'
+        ? params.specialAbsentMemoryLimit
+        : 12;
 
     let contextOutput = "[社交与NPC状态 (Social & NPCs)]\n";
     contextOutput += "⚠️ 指令提示：修改NPC属性请用 `gameState.社交[Index].属性`。\n";
@@ -92,8 +100,10 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
         // 数据准备
         const formatMemories = (mems: any[]) => mems.map(m => `[${m.时间戳}] ${m.内容}`);
         
-        const lastMemoriesRaw = c.记忆 ? c.记忆.slice(-normalMemoryDepth) : []; 
-        const focusMemoriesRaw = c.记忆 ? c.记忆.slice(-specialMemoryDepth) : []; 
+        const lastMemoriesRaw = c.记忆 ? c.记忆.slice(-presentMemoryDepth) : []; 
+        const focusMemoriesRaw = c.记忆 ? c.记忆.slice(-specialPresentMemoryDepth) : []; 
+        const absentMemoriesRaw = c.记忆 ? c.记忆.slice(-absentMemoryDepth) : [];
+        const specialAbsentMemoriesRaw = c.记忆 ? c.记忆.slice(-specialAbsentMemoryDepth) : [];
         
         const lastMemories = formatMemories(lastMemoriesRaw);
         const focusMemories = formatMemories(focusMemoriesRaw);
@@ -119,12 +129,13 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             };
             teammates.push(JSON.stringify(fullData, null, 2));
         } else if (c.特别关注 || c.强制包含上下文) {
+            const isPresent = !!c.是否在场;
             const focusData = {
                 ...baseInfo,
                 简介: c.简介, 外貌: c.外貌, 背景: c.背景,
                 位置详情: c.位置详情,
                 当前行动: c.当前行动,
-                最近记忆: focusMemories
+                最近记忆: isPresent ? focusMemories : formatMemories(specialAbsentMemoriesRaw)
             };
             focusChars.push(JSON.stringify(focusData));
         } else if (c.是否在场) {
@@ -136,8 +147,12 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             };
             presentChars.push(JSON.stringify(presentData));
         } else {
-            const summary = `[${index}] ${c.姓名}/${c.身份}/${c.种族} - 性别:${c.性别} - 最后记录:[${lastMem.时间戳}] ${lastMem.内容}`;
-            absentChars.push(summary);
+            const absentData = {
+                ...baseInfo,
+                最近记忆: formatMemories(absentMemoriesRaw),
+                最后记录: `[${lastMem.时间戳}] ${lastMem.内容}`
+            };
+            absentChars.push(JSON.stringify(absentData));
         }
     });
 
@@ -153,7 +168,7 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
  * 地图上下文 (Optimized: Raw Data based on Floor)
  */
 export const constructMapContext = (gameState: GameState, params: any): string => {
-    const floor = gameState.当前楼层 || 0;
+    const floor = typeof params?.forceFloor === 'number' ? params.forceFloor : (gameState.当前楼层 || 0);
     let output = `[地图环境 (Map Context)]\n`;
     output += `当前位置: ${gameState.当前地点} (Floor: ${floor})\n`;
     output += `坐标: X:${gameState.世界坐标?.x || 0} Y:${gameState.世界坐标?.y || 0}\n`;
@@ -219,17 +234,121 @@ export const constructWorldContext = (world: any, params: any): string => {
            `下次更新: ${world.下次更新 || "待定"}`;
 };
 
+const parseGameTimeLabel = (timestamp?: string) => {
+    if (!timestamp) return { dayLabel: "未知日", timeLabel: "??:??", sortValue: null as number | null };
+    const dayMatch = timestamp.match(/第(\d+)日/);
+    const timeMatch = timestamp.match(/(\d{1,2}):(\d{2})/);
+    const day = dayMatch ? parseInt(dayMatch[1], 10) : null;
+    const hour = timeMatch ? parseInt(timeMatch[1], 10) : null;
+    const minute = timeMatch ? parseInt(timeMatch[2], 10) : null;
+    const dayLabel = day !== null ? `第${day}日` : "未知日";
+    const timeLabel = hour !== null && minute !== null
+        ? `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+        : "??:??";
+    const sortValue = day !== null && hour !== null && minute !== null
+        ? (day * 24 * 60) + (hour * 60) + minute
+        : null;
+    return { dayLabel, timeLabel, sortValue };
+};
+
 export const constructPhoneContext = (messages: PhoneMessage[], moments: MomentPost[], params: any): string => {
-    const limit = params?.messageLimit || 5;
-    const recentMsgs = messages ? messages.slice(-limit) : [];
-    const recentMoments = moments ? moments.slice(-3) : [];
+    const perTargetLimit = typeof params?.perTargetLimit === 'number' ? params.perTargetLimit : (params?.messageLimit || 10);
+    const includeMoments = params?.includeMoments !== false;
+    const momentLimit = typeof params?.momentLimit === 'number' ? params.momentLimit : 6;
+    const targetFilters: string[] = Array.isArray(params?.targets) ? params.targets : [];
+    const groupFilters: string[] = Array.isArray(params?.groups) ? params.groups : [];
+    const targetLimits = params?.targetLimits || {};
+
+    const indexMap = new Map<string, number>();
+    (messages || []).forEach((m, idx) => indexMap.set(m.id, idx));
+    const getSortValue = (m: PhoneMessage) => {
+        if (typeof m.timestampValue === 'number') return m.timestampValue;
+        const parsed = parseGameTimeLabel(m.时间戳);
+        if (parsed.sortValue !== null) return parsed.sortValue;
+        return indexMap.get(m.id) ?? 0;
+    };
+
+    const isPlayer = (name?: string) => name === 'Player' || name === 'Joker' || name === '玩家';
+    const getOtherParty = (m: PhoneMessage) => {
+        if (m.频道 !== 'private') return null;
+        if (m.发送者 && !isPlayer(m.发送者)) return m.发送者;
+        if (m.目标 && !isPlayer(m.目标)) return m.目标;
+        return null;
+    };
+
+    const buildConversationBlock = (title: string, items: PhoneMessage[], limitOverride?: number) => {
+        if (items.length === 0) return "";
+        const sorted = [...items].sort((a, b) => getSortValue(a) - getSortValue(b));
+        const limit = typeof limitOverride === 'number' ? limitOverride : perTargetLimit;
+        const slice = limit > 0 ? sorted.slice(-limit) : sorted;
+        let block = `【${title}】\n`;
+        let currentDay = "";
+        slice.forEach((msg) => {
+            const { dayLabel, timeLabel } = parseGameTimeLabel(msg.时间戳);
+            if (dayLabel !== currentDay) {
+                currentDay = dayLabel;
+                block += `[${dayLabel}]\n`;
+            }
+            const senderName = isPlayer(msg.发送者) ? '玩家' : (msg.发送者 || '未知');
+            block += `${senderName}: ${msg.内容}[${timeLabel}]\n`;
+        });
+        return block.trimEnd();
+    };
+
     let output = "[手机通讯 (Phone)]\n";
-    if (recentMsgs.length > 0) {
-        output += "最新短信:\n" + recentMsgs.map(m => `- [${m.发送者}]: ${m.内容}`).join('\n') + "\n";
+
+    const privateThreads = new Map<string, PhoneMessage[]>();
+    (messages || []).forEach((m) => {
+        if (m.频道 !== 'private') return;
+        const other = getOtherParty(m);
+        if (!other) return;
+        if (targetFilters.length > 0 && !targetFilters.includes(other)) return;
+        if (!privateThreads.has(other)) privateThreads.set(other, []);
+        privateThreads.get(other)!.push(m);
+    });
+
+    const groupThreads = new Map<string, PhoneMessage[]>();
+    (messages || []).forEach((m) => {
+        if (m.频道 !== 'group' || !m.群组名称) return;
+        if (groupFilters.length > 0 && !groupFilters.includes(m.群组名称)) return;
+        if (!groupThreads.has(m.群组名称)) groupThreads.set(m.群组名称, []);
+        groupThreads.get(m.群组名称)!.push(m);
+    });
+
+    if (privateThreads.size > 0) {
+        output += "私信对话:\n";
+        Array.from(privateThreads.entries()).forEach(([name, msgs]) => {
+            const block = buildConversationBlock(`私信 - ${name}`, msgs, targetLimits[name]);
+            if (block) output += block + "\n";
+        });
     }
-    if (recentMoments.length > 0) {
-        output += "最新动态:\n" + recentMoments.map(m => `- [${m.发布者}]: ${m.内容}`).join('\n');
+
+    if (groupThreads.size > 0) {
+        output += "群聊对话:\n";
+        Array.from(groupThreads.entries()).forEach(([name, msgs]) => {
+            const block = buildConversationBlock(`群聊 - ${name}`, msgs);
+            if (block) output += block + "\n";
+        });
     }
+
+    if (includeMoments && moments && moments.length > 0) {
+        const sortedMoments = [...moments].sort((a, b) => {
+            if (typeof a.timestampValue === 'number' && typeof b.timestampValue === 'number') {
+                return a.timestampValue - b.timestampValue;
+            }
+            const aParsed = parseGameTimeLabel(a.时间戳);
+            const bParsed = parseGameTimeLabel(b.时间戳);
+            if (aParsed.sortValue !== null && bParsed.sortValue !== null) return aParsed.sortValue - bParsed.sortValue;
+            return 0;
+        });
+        const slice = momentLimit > 0 ? sortedMoments.slice(-momentLimit) : sortedMoments;
+        output += "公开动态:\n";
+        slice.forEach((m) => {
+            const { timeLabel } = parseGameTimeLabel(m.时间戳);
+            output += `- ${m.发布者}: ${m.内容}[${timeLabel}]\n`;
+        });
+    }
+
     return output.trim();
 };
 
@@ -305,6 +424,22 @@ export const constructInventoryContext = (inventory: InventoryItem[], publicLoot
 
 // --- Main Prompt Assembler ---
 
+const parseDungeonFloorTrigger = (input: string): number | null => {
+    if (!input) return null;
+    const match = input.match(/(?:前往|去|到|进入|下降到|下到|抵达)\s*(\d{1,3})\s*层/);
+    if (!match) return null;
+    const floor = parseInt(match[1], 10);
+    return Number.isNaN(floor) ? null : floor;
+};
+
+const hasMapKeyword = (input: string, params: any): boolean => {
+    if (!input) return false;
+    if (Array.isArray(params?.triggerKeywords)) {
+        return params.triggerKeywords.some((kw: string) => kw && input.includes(kw));
+    }
+    return /地图|地形|路线|路径/.test(input);
+};
+
 export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState: GameState, settings: AppSettings, commandHistory: string[] = [], playerInput: string = ""): string => {
     switch(mod.type) {
         case 'SYSTEM_PROMPTS':
@@ -362,8 +497,13 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
                 ? { ...cleanPlayerData, 生命值, 最大生命值 }
                 : cleanPlayerData;
             return `[玩家数据 (Player Data)]\n${JSON.stringify(filteredPlayerData, null, 2)}`;
-        case 'MAP_CONTEXT':
-            return constructMapContext(gameState, mod.params);
+        case 'MAP_CONTEXT': {
+            const mapFloor = gameState.当前楼层 || 0;
+            const triggerFloor = parseDungeonFloorTrigger(playerInput);
+            const hasTrigger = triggerFloor !== null || hasMapKeyword(playerInput, mod.params);
+            if (mapFloor > 0 && !hasTrigger && !mod.params?.alwaysIncludeDungeon) return "";
+            return constructMapContext(gameState, { ...mod.params, forceFloor: triggerFloor ?? mapFloor });
+        }
         case 'SOCIAL_CONTEXT':
             return constructSocialContext(gameState.社交, mod.params);
         case 'INVENTORY_CONTEXT':

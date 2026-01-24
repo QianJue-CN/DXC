@@ -42,15 +42,16 @@ const DEFAULT_CONTEXT_MODULES: ContextModuleConfig[] = [
     { id: 'm_world', type: 'WORLD_CONTEXT', name: '世界动态', enabled: true, order: 1, params: {} },
     { id: 'm_map', type: 'MAP_CONTEXT', name: '地图环境', enabled: true, order: 2, params: { detailLevel: 'medium' } },
     { id: 'm_player', type: 'PLAYER_DATA', name: '玩家数据', enabled: true, order: 3, params: {} },
-    { id: 'm_social', type: 'SOCIAL_CONTEXT', name: '周边NPC', enabled: true, order: 4, params: { includeAttributes: ['appearance', 'status'], specialMemoryLimit: 5, normalMemoryLimit: 30 } },
-    { id: 'm_inv', type: 'INVENTORY_CONTEXT', name: '背包/公共战利品', enabled: true, order: 5, params: { detailLevel: 'medium' } },
-    { id: 'm_phone', type: 'PHONE_CONTEXT', name: '手机/消息', enabled: true, order: 6, params: { messageLimit: 5 } },
-    { id: 'm_combat', type: 'COMBAT_CONTEXT', name: '战斗数据', enabled: true, order: 6, params: {} }, 
-    { id: 'm_task', type: 'TASK_CONTEXT', name: '任务列表', enabled: true, order: 7, params: {} },
-    { id: 'm_story', type: 'STORY_CONTEXT', name: '剧情进度', enabled: true, order: 8, params: {} },
-    { id: 'm_mem', type: 'MEMORY_CONTEXT', name: '记忆流', enabled: true, order: 9, params: {} },
-    { id: 'm_hist', type: 'COMMAND_HISTORY', name: '指令历史', enabled: true, order: 10, params: {} },
-    { id: 'm_input', type: 'USER_INPUT', name: '玩家输入', enabled: true, order: 11, params: {} },
+    { id: 'm_social', type: 'SOCIAL_CONTEXT', name: '周边NPC', enabled: true, order: 4, params: { includeAttributes: ['appearance', 'status'], presentMemoryLimit: 30, absentMemoryLimit: 6, specialPresentMemoryLimit: 30, specialAbsentMemoryLimit: 12 } },
+    { id: 'm_familia', type: 'FAMILIA_CONTEXT', name: '眷族信息', enabled: true, order: 5, params: {} },
+    { id: 'm_inv', type: 'INVENTORY_CONTEXT', name: '背包/公共战利品', enabled: true, order: 6, params: { detailLevel: 'medium' } },
+    { id: 'm_phone', type: 'PHONE_CONTEXT', name: '手机/消息', enabled: true, order: 7, params: { perTargetLimit: 10, includeMoments: true, momentLimit: 6 } },
+    { id: 'm_combat', type: 'COMBAT_CONTEXT', name: '战斗数据', enabled: true, order: 8, params: {} }, 
+    { id: 'm_task', type: 'TASK_CONTEXT', name: '任务列表', enabled: true, order: 9, params: {} },
+    { id: 'm_story', type: 'STORY_CONTEXT', name: '剧情进度', enabled: true, order: 10, params: {} },
+    { id: 'm_mem', type: 'MEMORY_CONTEXT', name: '记忆流', enabled: true, order: 11, params: {} },
+    { id: 'm_hist', type: 'COMMAND_HISTORY', name: '指令历史', enabled: true, order: 12, params: {} },
+    { id: 'm_input', type: 'USER_INPUT', name: '玩家输入', enabled: true, order: 13, params: {} },
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -58,6 +59,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     fontSize: 'medium',
     enableActionOptions: true,
     enableStreaming: true,
+    chatLogLimit: 30,
     promptModules: DEFAULT_PROMPT_MODULES,
     memoryConfig: DEFAULT_MEMORY_CONFIG,
     contextConfig: { modules: DEFAULT_CONTEXT_MODULES },
@@ -138,6 +140,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const [snapshotState, setSnapshotState] = useState<GameState | null>(null);
     const [memorySummaryState, setMemorySummaryState] = useState<MemorySummaryState | null>(null);
     const [pendingInteraction, setPendingInteraction] = useState<PendingInteraction | null>(null);
+    const silentUpdateInFlight = useRef(false);
+    const lastWorldUpdateRef = useRef<string | null>(null);
 
     useEffect(() => {
         const savedSettings = localStorage.getItem('danmachi_settings');
@@ -526,6 +530,71 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         else if (channel === 'private' && target && target !== 'Player') fullText = `[私信: ${target}] ${text}`;
         handleAIInteraction(fullText, 'PHONE');
     };
+    const handleCreateMoment = (content: string, imageDesc?: string) => {
+        if (!content.trim()) return;
+        const timestampValue = Date.now();
+        const newPost = {
+            id: `Mom_${timestampValue}`,
+            发布者: gameState.角色.姓名 || 'Player',
+            头像: gameState.角色.头像 || '',
+            内容: content.trim(),
+            时间戳: gameState.游戏时间 || '未知',
+            timestampValue: timestampValue,
+            点赞数: 0,
+            评论: [],
+            图片描述: imageDesc || undefined
+        };
+        const nextState = { ...gameState, 动态: [...gameState.动态, newPost] };
+        setGameState(nextState);
+        const descText = imageDesc ? `（图片描述：${imageDesc}）` : '';
+        handleAIInteraction(`我在朋友圈发布动态：${content.trim()}${descText}`, 'PHONE', [], nextState, true);
+    };
+    const handleSilentWorldUpdate = async () => {
+        if (silentUpdateInFlight.current || isProcessing) return;
+        silentUpdateInFlight.current = true;
+        try {
+            const aiResponse = await generateDungeonMasterResponse(
+                "【系统】世界情报静默更新",
+                gameState,
+                settings,
+                "",
+                []
+            );
+            setGameState(prev => {
+                const commands = Array.isArray(aiResponse.tavern_commands) ? aiResponse.tavern_commands : [];
+                const { newState } = processTavernCommands(prev, commands);
+                newState.处理中 = false;
+                return newState;
+            });
+        } catch (e) {
+            console.error("Silent world update failed", e);
+        } finally {
+            silentUpdateInFlight.current = false;
+        }
+    };
+
+    const parseGameTime = (input?: string) => {
+        if (!input) return null;
+        const dayMatch = input.match(/第(\d+)日/);
+        const timeMatch = input.match(/(\d{1,2}):(\d{2})/);
+        if (!dayMatch || !timeMatch) return null;
+        const day = parseInt(dayMatch[1], 10);
+        const hour = parseInt(timeMatch[1], 10);
+        const minute = parseInt(timeMatch[2], 10);
+        if ([day, hour, minute].some(n => Number.isNaN(n))) return null;
+        return day * 24 * 60 + hour * 60 + minute;
+    };
+
+    useEffect(() => {
+        const nowValue = parseGameTime(gameState.游戏时间);
+        const nextValue = parseGameTime(gameState.世界?.下次更新);
+        if (nowValue === null || nextValue === null) return;
+        const key = gameState.世界?.下次更新 || '';
+        if (nowValue >= nextValue && lastWorldUpdateRef.current !== key) {
+            lastWorldUpdateRef.current = key;
+            handleSilentWorldUpdate();
+        }
+    }, [gameState.游戏时间, gameState.世界?.下次更新]);
     const handlePlayerAction = (action: 'attack' | 'skill' | 'guard' | 'escape' | 'talk' | 'item', payload?: any) => {
         if (isProcessing) return;
         let input = "";
@@ -573,7 +642,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         gameState, setGameState, settings, setSettings,
         commandQueue, addToQueue, removeFromQueue, currentOptions, lastAIResponse, isProcessing, isStreaming, draftInput, setDraftInput,
         memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
-        handleAIInteraction, stopInteraction, handlePlayerAction, handleSendMessage, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
+        handleAIInteraction, stopInteraction, handlePlayerAction, handleSendMessage, handleCreateMoment, handleSilentWorldUpdate, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
         handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask
     };
 };

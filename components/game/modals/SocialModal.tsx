@@ -161,8 +161,16 @@ export const SocialModal: React.FC<SocialModalProps> = ({
   };
 
   const getFilteredConfidants = () => {
-      if (activeTab === 'SPECIAL') return confidants.filter(c => c.特别关注);
-      return confidants.filter(c => !c.特别关注); 
+      const filtered = activeTab === 'SPECIAL'
+          ? confidants.filter(c => c.特别关注)
+          : confidants.filter(c => !c.特别关注);
+      return [...filtered].sort((a, b) => {
+          const presentDiff = Number(!!b.是否在场) - Number(!!a.是否在场);
+          if (presentDiff !== 0) return presentDiff;
+          const partyDiff = Number(!!b.是否队友) - Number(!!a.是否队友);
+          if (partyDiff !== 0) return partyDiff;
+          return a.姓名.localeCompare(b.姓名);
+      });
   };
 
   const renderSpecialCard = (c: Confidant) => {

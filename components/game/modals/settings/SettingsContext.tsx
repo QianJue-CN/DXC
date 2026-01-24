@@ -51,6 +51,26 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
         onUpdateGameState({ ...gameState, 社交: newConfidants });
     };
 
+    const togglePhoneTarget = (name: string) => {
+        if (!activeModule) return;
+        const allNames = gameState.社交.map(c => c.姓名);
+        const current = Array.isArray(activeModule.params.targets) && activeModule.params.targets.length > 0
+            ? activeModule.params.targets
+            : allNames;
+        const next = current.includes(name) ? current.filter((n: string) => n !== name) : [...current, name];
+        const normalized = next.length === allNames.length ? [] : next;
+        handleUpdateParams(activeModule.id, 'targets', normalized);
+    };
+
+    const updatePhoneTargetLimit = (name: string, value: number) => {
+        if (!activeModule) return;
+        const current = activeModule.params.targetLimits || {};
+        const next = { ...current };
+        if (!value || value < 0) delete next[name];
+        else next[name] = value;
+        handleUpdateParams(activeModule.id, 'targetLimits', next);
+    };
+
     const getPreviewText = () => {
         if (previewMode === 'MODULE' && selectedModuleId) {
             const mod = modules.find(m => m.id === selectedModuleId);
@@ -126,12 +146,12 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
                                             <div className="space-y-4">
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <div className="bg-white p-3 border border-zinc-200 rounded">
-                                                        <label className="block text-xs font-bold text-zinc-500 mb-1">特别关注记忆数</label>
+                                                        <label className="block text-xs font-bold text-zinc-500 mb-1">特别关注(在场)记忆数</label>
                                                         <div className="flex items-center gap-2">
                                                             <input 
-                                                                type="number" min="1" max="20"
-                                                                value={activeModule.params.specialMemoryLimit || 5} 
-                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'specialMemoryLimit', parseInt(e.target.value))}
+                                                                type="number" min="1" max="50"
+                                                                value={activeModule.params.specialPresentMemoryLimit ?? activeModule.params.specialMemoryLimit ?? 30} 
+                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'specialPresentMemoryLimit', parseInt(e.target.value))}
                                                                 className="w-16 p-1 border border-zinc-300 text-xs font-mono"
                                                             />
                                                             <span className="text-[10px] text-zinc-400">条</span>
@@ -142,8 +162,32 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
                                                         <div className="flex items-center gap-2">
                                                             <input 
                                                                 type="number" min="0" max="100"
-                                                                value={activeModule.params.normalMemoryLimit || 30} 
-                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'normalMemoryLimit', parseInt(e.target.value))}
+                                                                value={activeModule.params.presentMemoryLimit ?? activeModule.params.normalMemoryLimit ?? 30} 
+                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'presentMemoryLimit', parseInt(e.target.value))}
+                                                                className="w-16 p-1 border border-zinc-300 text-xs font-mono"
+                                                            />
+                                                            <span className="text-[10px] text-zinc-400">条</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-white p-3 border border-zinc-200 rounded">
+                                                        <label className="block text-xs font-bold text-zinc-500 mb-1">特别关注(不在场)记忆数</label>
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="number" min="0" max="50"
+                                                                value={activeModule.params.specialAbsentMemoryLimit ?? 12} 
+                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'specialAbsentMemoryLimit', parseInt(e.target.value))}
+                                                                className="w-16 p-1 border border-zinc-300 text-xs font-mono"
+                                                            />
+                                                            <span className="text-[10px] text-zinc-400">条</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-white p-3 border border-zinc-200 rounded">
+                                                        <label className="block text-xs font-bold text-zinc-500 mb-1">不在场普通记忆数</label>
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="number" min="0" max="50"
+                                                                value={activeModule.params.absentMemoryLimit ?? 6} 
+                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'absentMemoryLimit', parseInt(e.target.value))}
                                                                 className="w-16 p-1 border border-zinc-300 text-xs font-mono"
                                                             />
                                                             <span className="text-[10px] text-zinc-400">条</span>
@@ -196,6 +240,119 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
                                                             </tbody>
                                                         </table>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        ) : activeModule.type === 'PHONE_CONTEXT' ? (
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="bg-white p-3 border border-zinc-200 rounded">
+                                                        <label className="block text-xs font-bold text-zinc-500 mb-1">对话展示条数</label>
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="number" min="0" max="100"
+                                                                value={activeModule.params.perTargetLimit ?? activeModule.params.messageLimit ?? 10} 
+                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'perTargetLimit', parseInt(e.target.value))}
+                                                                className="w-16 p-1 border border-zinc-300 text-xs font-mono"
+                                                            />
+                                                            <span className="text-[10px] text-zinc-400">条</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-white p-3 border border-zinc-200 rounded">
+                                                        <label className="block text-xs font-bold text-zinc-500 mb-1">公开动态条数</label>
+                                                        <div className="flex items-center gap-2">
+                                                            <input 
+                                                                type="number" min="0" max="50"
+                                                                value={activeModule.params.momentLimit ?? 6} 
+                                                                onChange={(e) => handleUpdateParams(activeModule.id, 'momentLimit', parseInt(e.target.value))}
+                                                                className="w-16 p-1 border border-zinc-300 text-xs font-mono"
+                                                            />
+                                                            <span className="text-[10px] text-zinc-400">0=不限</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-white p-3 border border-zinc-200 rounded flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-xs font-bold text-zinc-600">包含公开动态</div>
+                                                        <div className="text-[10px] text-zinc-400">关闭后仅发送聊天对话</div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => handleUpdateParams(activeModule.id, 'includeMoments', !(activeModule.params.includeMoments !== false))}
+                                                        className={`${activeModule.params.includeMoments !== false ? 'text-green-500' : 'text-zinc-300'}`}
+                                                    >
+                                                        {activeModule.params.includeMoments !== false ? <ToggleRight size={20}/> : <ToggleLeft size={20}/>}
+                                                    </button>
+                                                </div>
+
+                                                <div className="border border-zinc-200 rounded overflow-hidden bg-white shadow-sm">
+                                                    <div className="bg-zinc-100 px-3 py-2 border-b border-zinc-200 text-xs font-bold text-zinc-500 flex justify-between">
+                                                        <span>对话角色筛选 (空=全量)</span>
+                                                        <span className="text-[10px] font-normal">Count: {gameState.社交.length}</span>
+                                                    </div>
+                                                    <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                                                        <table className="w-full text-xs text-left">
+                                                            <thead className="bg-zinc-50 text-zinc-400 font-medium sticky top-0">
+                                                                <tr>
+                                                                    <th className="p-2 font-light">角色</th>
+                                                                    <th className="p-2 text-center font-light">展示</th>
+                                                                    <th className="p-2 text-center font-light">条数</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {gameState.社交.map(c => {
+                                                                    const hasFilter = Array.isArray(activeModule.params.targets) && activeModule.params.targets.length > 0;
+                                                                    const isEnabled = hasFilter
+                                                                        ? activeModule.params.targets.includes(c.姓名)
+                                                                        : true;
+                                                                    const limitVal = activeModule.params.targetLimits?.[c.姓名] ?? '';
+                                                                    return (
+                                                                        <tr key={c.id} className="border-b border-zinc-100 hover:bg-indigo-50 transition-colors">
+                                                                            <td className="p-2 font-bold text-zinc-700">{c.姓名}</td>
+                                                                            <td className="p-2 text-center">
+                                                                                <button onClick={() => togglePhoneTarget(c.姓名)} className={isEnabled ? 'text-green-500' : 'text-zinc-300'}>
+                                                                                    {isEnabled ? <Eye size={16}/> : <EyeOff size={16}/>}
+                                                                                </button>
+                                                                            </td>
+                                                                            <td className="p-2 text-center">
+                                                                                <input 
+                                                                                    type="number" min="0" max="100"
+                                                                                    value={limitVal}
+                                                                                    onChange={(e) => updatePhoneTargetLimit(c.姓名, parseInt(e.target.value))}
+                                                                                    placeholder={`${activeModule.params.perTargetLimit ?? activeModule.params.messageLimit ?? 10}`}
+                                                                                    className="w-12 p-0.5 border border-zinc-300 text-[10px] font-mono text-center"
+                                                                                />
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : activeModule.type === 'MAP_CONTEXT' ? (
+                                            <div className="space-y-4">
+                                                <div className="bg-white p-3 border border-zinc-200 rounded flex items-center justify-between">
+                                                    <div>
+                                                        <div className="text-xs font-bold text-zinc-600">地下层地图常驻</div>
+                                                        <div className="text-[10px] text-zinc-400">关闭后仅在触发词出现时发送</div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => handleUpdateParams(activeModule.id, 'alwaysIncludeDungeon', !activeModule.params.alwaysIncludeDungeon)}
+                                                        className={`${activeModule.params.alwaysIncludeDungeon ? 'text-green-500' : 'text-zinc-300'}`}
+                                                    >
+                                                        {activeModule.params.alwaysIncludeDungeon ? <ToggleRight size={20}/> : <ToggleLeft size={20}/>}
+                                                    </button>
+                                                </div>
+                                                <div className="bg-white p-3 border border-zinc-200 rounded">
+                                                    <label className="block text-xs font-bold text-zinc-500 mb-1">触发关键词 (逗号分隔)</label>
+                                                    <input
+                                                        type="text"
+                                                        value={Array.isArray(activeModule.params.triggerKeywords) ? activeModule.params.triggerKeywords.join(',') : ''}
+                                                        onChange={(e) => handleUpdateParams(activeModule.id, 'triggerKeywords', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                                        className="w-full border border-zinc-300 rounded p-1 text-xs bg-transparent"
+                                                        placeholder="前往,地图,地形"
+                                                    />
                                                 </div>
                                             </div>
                                         ) : (
