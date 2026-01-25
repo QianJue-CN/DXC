@@ -1,5 +1,5 @@
-﻿
-import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, MemoryEntry, LogEntry, AIResponse, ContextModuleConfig, InventoryItem, Task, MemoryConfig, PhoneMessage, MemorySystem, MomentPost, WorldMapData } from "../types";
+
+import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, MemoryEntry, LogEntry, AIResponse, ContextModuleConfig, ContextModuleType, InventoryItem, Task, MemoryConfig, PhoneMessage, MemorySystem, MomentPost, WorldMapData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 import { 
     P_SYS_FORMAT, P_SYS_CORE, P_SYS_STATS, P_SYS_LEVELING, P_SYS_COMBAT,
@@ -218,21 +218,12 @@ export const constructMapContext = (gameState: GameState, params: any): string =
     const routes = Array.isArray(mapData.routes) ? mapData.routes : [];
     const terrain = Array.isArray(mapData.terrain) ? mapData.terrain : [];
     const territories = Array.isArray(mapData.territories) ? mapData.territories : [];
-    const factions = Array.isArray(mapData.factions) ? mapData.factions : [];
     const filterByFloor = (items: any[]) => items.filter(item => (item?.floor ?? 0) === floor);
 
     const floorLocations = filterByFloor(surfaceLocations);
     const floorRoutes = filterByFloor(routes);
     const floorTerrain = filterByFloor(terrain);
     const floorTerritories = filterByFloor(territories);
-
-    if (mapData.config || factions.length > 0) {
-        const basePayload = {
-            config: mapData.config || undefined,
-            factions: factions.length > 0 ? factions : undefined
-        };
-        output += `【地图基础】\n${JSON.stringify(basePayload, null, 2)}\n`;
-    }
 
     if (floor === 0) {
         output += `【地表节点 (Surface)】\n${JSON.stringify(floorLocations, null, 2)}\n`;
@@ -259,6 +250,17 @@ export const constructMapContext = (gameState: GameState, params: any): string =
         }
     }
     return output;
+};
+
+const constructMapBaseContext = (mapData?: WorldMapData): string => {
+    if (!mapData) return "";
+    const factions = Array.isArray(mapData.factions) ? mapData.factions : [];
+    const basePayload = {
+        config: mapData.config || undefined,
+        factions: factions.length > 0 ? factions : undefined
+    };
+    if (!basePayload.config && !basePayload.factions) return "";
+    return `【地图基础】\n${JSON.stringify(basePayload, null, 2)}`;
 };
 
 /**
@@ -448,12 +450,19 @@ export const constructMemoryContext = (memory: MemorySystem, logs: LogEntry[], c
     let output = "[记忆流 (Memory Stream)]\n";
     const instantTurnLimit = config.instantLimit || 10; // Number of turns
     const shortTermEntryLimit = config.shortTermLimit || 30; // Number of summaries
+    const excludeTurnIndex = typeof params?.excludeTurnIndex === 'number' ? params.excludeTurnIndex : null;
+    const excludePlayerInput = params?.excludePlayerInput === true;
+    const fallbackGameTime = typeof params?.fallbackGameTime === 'string' ? params.fallbackGameTime : "";
+    const filteredLogs = (excludePlayerInput && excludeTurnIndex !== null)
+        ? logs.filter(l => !(l.sender === 'player' && (l.turnIndex || 0) === excludeTurnIndex))
+        : logs;
 
     const formatShortTermLabel = (entry: MemoryEntry) => {
         const stamp = entry.timestamp || "";
         const match = stamp.match(/第(\d+)日\s*(\d{1,2}:\d{2})/);
         if (match) return `第${match[1]}日${match[2]}`;
         if (stamp) return stamp.replace(/\s+/g, "");
+        if (!stamp && fallbackGameTime) return fallbackGameTime.replace(/\s+/g, "");
         if (typeof entry.turnIndex === 'number') return `第${entry.turnIndex}日??:??`;
         return "第?日??:??";
     };
@@ -472,7 +481,7 @@ export const constructMemoryContext = (memory: MemorySystem, logs: LogEntry[], c
     // We want the last N turns to be Instant.
     // Get all unique turn indices from logs (assuming logs are sorted by time, or sort them)
     // Actually, simply scanning logs is safer.
-    const allTurns = Array.from(new Set(logs.map(l => l.turnIndex || 0))).sort((a, b) => b - a);
+    const allTurns = Array.from(new Set(filteredLogs.map(l => l.turnIndex || 0))).sort((a, b) => b - a);
     const activeInstantTurns = allTurns.slice(0, instantTurnLimit);
     // The cutoff is the smallest turn number in the active set. 
     // Anything smaller than this goes to Short Term Context.
@@ -491,7 +500,7 @@ export const constructMemoryContext = (memory: MemorySystem, logs: LogEntry[], c
 
     // 4. Instant Logs (Grouped by Turn)
     // Filter logs that belong to the active instant turns
-    const instantLogs = logs.filter(l => (l.turnIndex || 0) >= minInstantTurn);
+    const instantLogs = filteredLogs.filter(l => (l.turnIndex || 0) >= minInstantTurn);
     
     if (instantLogs.length > 0) {
         output += `【即时剧情 (Instant Log - Recent ${activeInstantTurns.length} Turns)】:\n`;
@@ -502,7 +511,8 @@ export const constructMemoryContext = (memory: MemorySystem, logs: LogEntry[], c
             // Group header
             if (turn !== currentTurn) {
                 currentTurn = turn;
-                output += `\n[Turn ${currentTurn} | ${l.gameTime || '??:??'}]\n`;
+                const logTime = l.gameTime || fallbackGameTime || '??:??';
+                output += `\n[Turn ${currentTurn} | ${logTime}]\n`;
             }
             output += `[${l.sender}]: ${l.text}\n`;
         });
@@ -592,7 +602,25 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
             });
             
             const filteredModules = activePromptModules.filter(m => !isCotModule(m));
-            const sorted = [...filteredModules].sort((a, b) => a.order - b.order);
+            const groupPriority = [
+                '世界观设定',
+                '世界动态',
+                '动态世界提示词',
+                '难度系统',
+                '判定系统',
+                '生理系统',
+                '系统设定',
+                '开局提示词'
+            ];
+            const getGroupPriority = (group: string) => {
+                const index = groupPriority.indexOf(group);
+                return index === -1 ? groupPriority.length : index;
+            };
+            const sorted = [...filteredModules].sort((a, b) => {
+                const groupDiff = getGroupPriority(a.group) - getGroupPriority(b.group);
+                if (groupDiff !== 0) return groupDiff;
+                return a.order - b.order;
+            });
             let content = sorted.map(m => m.content).join('\n\n');
             if (settings.enableActionOptions) content += "\n\n" + P_ACTION_OPTIONS;
             return content;
@@ -600,6 +628,8 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
         case 'WORLD_CONTEXT':
             let worldContent = `[当前世界时间 (World Clock)]\n${gameState.当前日期} ${gameState.游戏时间}\n\n`;
             worldContent += constructWorldContext(gameState.世界, mod.params);
+            const mapBase = constructMapBaseContext(gameState.地图);
+            if (mapBase) worldContent += `\n\n${mapBase}`;
             return worldContent;
 
         case 'PLAYER_DATA':
@@ -635,7 +665,17 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
         case 'COMBAT_CONTEXT': 
             return constructCombatContext(gameState.战斗, mod.params);
         case 'MEMORY_CONTEXT':
-            return constructMemoryContext(gameState.记忆, gameState.日志, settings.memoryConfig || DEFAULT_MEMORY_CONFIG, mod.params);
+            return constructMemoryContext(
+                gameState.记忆,
+                gameState.日志,
+                settings.memoryConfig || DEFAULT_MEMORY_CONFIG,
+                {
+                    ...mod.params,
+                    excludeTurnIndex: gameState.回合数 || 0,
+                    excludePlayerInput: true,
+                    fallbackGameTime: gameState.游戏时间
+                }
+            );
         case 'COMMAND_HISTORY':
             return commandHistory.length > 0 ? `[指令历史]\n${commandHistory.join('\n')}` : "[指令历史] (Empty)";
         case 'USER_INPUT':
@@ -653,34 +693,67 @@ export const assembleFullPrompt = (
 ): string => {
     const contextModules = settings.contextConfig?.modules || [];
     let fullContent = "";
-    
-    const sortedContextModules = [...contextModules]
-        .filter(m => m.enabled)
+
+    const enabledModules = contextModules.filter(m => m.enabled);
+    const moduleMap = new Map<ContextModuleType, ContextModuleConfig[]>();
+    enabledModules.forEach(mod => {
+        if (!moduleMap.has(mod.type)) moduleMap.set(mod.type, []);
+        moduleMap.get(mod.type)!.push(mod);
+    });
+
+    const appendModules = (type: ContextModuleType) => {
+        const modules = moduleMap.get(type) || [];
+        modules.forEach(mod => {
+            const modContent = generateSingleModuleContext(mod, gameState, settings, commandHistory, playerInput);
+            if (modContent) {
+                fullContent += modContent + "\n\n";
+            }
+        });
+    };
+
+    const orderedTypes: ContextModuleType[] = [
+        'SYSTEM_PROMPTS',
+        'MEMORY_CONTEXT',
+        'PLAYER_DATA',
+        'SOCIAL_CONTEXT',
+        'MAP_CONTEXT',
+        'INVENTORY_CONTEXT',
+        'COMBAT_CONTEXT',
+        'TASK_CONTEXT',
+        'STORY_CONTEXT',
+        'WORLD_CONTEXT',
+        'FAMILIA_CONTEXT',
+        'CONTRACT_CONTEXT',
+        'PHONE_CONTEXT'
+    ];
+    const handledTypes = new Set<ContextModuleType>([...orderedTypes, 'COMMAND_HISTORY', 'USER_INPUT']);
+
+    orderedTypes.forEach(appendModules);
+
+    const remainingModules = enabledModules
+        .filter(mod => !handledTypes.has(mod.type))
         .sort((a, b) => a.order - b.order);
-
-    const cotContent = buildCotPrompt(settings);
-    let cotInjected = false;
-
-    sortedContextModules.forEach(mod => {
-        if (!cotInjected && cotContent && (mod.type === 'COMMAND_HISTORY' || mod.type === 'USER_INPUT')) {
-            fullContent += cotContent + "\n\n";
-            cotInjected = true;
-        }
+    remainingModules.forEach(mod => {
         const modContent = generateSingleModuleContext(mod, gameState, settings, commandHistory, playerInput);
         if (modContent) {
             fullContent += modContent + "\n\n";
         }
     });
 
-    if (!cotInjected && cotContent) {
+    const cotContent = buildCotPrompt(settings);
+    if (cotContent) {
         fullContent += cotContent + "\n\n";
     }
+
+    appendModules('COMMAND_HISTORY');
+    appendModules('USER_INPUT');
 
     return fullContent.trim();
 };
 
 export interface AIRequestOptions {
     responseFormat?: 'json' | 'text';
+    signal?: AbortSignal | null;
 }
 
 export const dispatchAIRequest = async (
@@ -693,6 +766,7 @@ export const dispatchAIRequest = async (
     if (!config.apiKey) throw new Error(`Missing API Key for ${config.provider}`);
     const responseFormat = options.responseFormat ?? 'json';
     const forceJson = responseFormat === 'json';
+    const signal = options.signal ?? undefined;
 
     if (config.provider === 'gemini') {
         const ai = new GoogleGenAI({ apiKey: config.apiKey });
@@ -705,7 +779,10 @@ export const dispatchAIRequest = async (
                     { role: 'user', parts: [{ text: systemPrompt + "\n\n" + userContent }] }
                 ]
             };
-            if (forceJson) requestPayload.config = { responseMimeType: "application/json" };
+            const requestConfig: any = {};
+            if (forceJson) requestConfig.responseMimeType = "application/json";
+            if (signal) requestConfig.abortSignal = signal;
+            if (Object.keys(requestConfig).length > 0) requestPayload.config = requestConfig;
             const responseStream = await ai.models.generateContentStream(requestPayload);
 
             let fullText = "";
@@ -732,6 +809,7 @@ export const dispatchAIRequest = async (
             const response = await fetch(`${baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${config.apiKey}` },
+                ...(signal ? { signal } : {}),
                 body: JSON.stringify({
                     model: model,
                     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }],
@@ -816,6 +894,7 @@ export const generateDungeonMasterResponse = async (
     settings: AppSettings,
     exitsStr: string,
     commandsOverride: string[],
+    signal?: AbortSignal,
     onStream?: (chunk: string) => void
 ): Promise<AIResponse> => {
     const systemPrompt = assembleFullPrompt(input, gameState, settings, commandsOverride);
@@ -829,7 +908,7 @@ export const generateDungeonMasterResponse = async (
             systemPrompt,
             userContent,
             streamCallback,
-            { responseFormat: 'json' }
+            { responseFormat: 'json', signal }
         );
 
         if (!rawText || !rawText.trim()) throw new Error("AI returned empty response.");
@@ -877,6 +956,9 @@ export const generateDungeonMasterResponse = async (
             };
         }
     } catch (error: any) {
+        if (error?.name === 'AbortError' || /abort/i.test(error?.message || '')) {
+            throw error;
+        }
         console.error("AI Generation Error", error);
         const rawBlock = rawText ? `\n\n【原始AI消息】\n${rawText}` : "";
         return {

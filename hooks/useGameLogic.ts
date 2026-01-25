@@ -1,4 +1,4 @@
-﻿
+
 import { useState, useEffect, useRef } from 'react';
 import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, PhoneMessage, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
@@ -152,6 +152,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const [pendingInteraction, setPendingInteraction] = useState<PendingInteraction | null>(null);
     const silentUpdateInFlight = useRef(false);
     const lastWorldUpdateRef = useRef<string | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         const savedSettings = localStorage.getItem('danmachi_settings');
@@ -345,6 +346,12 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         return null;
     };
 
+    const isAbortError = (error: any) => {
+        if (!error) return false;
+        if (error.name === 'AbortError') return true;
+        return /abort/i.test(error.message || '');
+    };
+
     const handleAIInteraction = async (
         input: string,
         contextType: 'ACTION' | 'PHONE' = 'ACTION',
@@ -372,6 +379,12 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         if (!stateOverride) setSnapshotState(JSON.parse(JSON.stringify(gameState)));
         const turnIndex = (baseState.回合数 || 1);
         
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
+
         setIsProcessing(true);
         setLastAIResponse('');
         setLastAIThinking('');
@@ -410,6 +423,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 settings, 
                 "", 
                 commandsOverride || [],
+                abortController.signal,
                 onStreamChunk
             );
             
@@ -486,16 +500,21 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 return newState;
             });
         } catch (error: any) {
-            console.error("Interaction failed:", error);
-            setGameState(prev => ({ 
-                ...prev, 
-                处理中: false, 
-                日志: [...prev.日志, { id: generateLegacyId(), text: `Error: ${error.message}`, sender: 'system', timestamp: Date.now() }] 
-            }));
+            if (isAbortError(error)) {
+                setGameState(prev => ({ ...prev, 处理中: false }));
+            } else {
+                console.error("Interaction failed:", error);
+                setGameState(prev => ({ 
+                    ...prev, 
+                    处理中: false, 
+                    日志: [...prev.日志, { id: generateLegacyId(), text: `Error: ${error.message}`, sender: 'system', timestamp: Date.now() }] 
+                }));
+            }
         } finally {
             setIsProcessing(false);
             setIsStreaming(false);
             clearPendingCommands();
+            abortControllerRef.current = null;
         }
     };
 
@@ -652,7 +671,16 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         setCommandQueue([]);
         return current;
     };
-    const stopInteraction = () => { setIsProcessing(false); setIsStreaming(false); clearPendingCommands(); };
+    const stopInteraction = () => { 
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsProcessing(false); 
+        setIsStreaming(false); 
+        setGameState(prev => ({ ...prev, 处理中: false }));
+        clearPendingCommands(); 
+    };
     const handleSendMessage = (text: string, channel: 'private'|'group' = 'private', target?: string) => {
         let fullText = text;
         if (channel === 'group' && target) fullText = `[群聊: ${target}] ${text}`;
@@ -710,7 +738,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 gameState,
                 settings,
                 "",
-                []
+                [],
+                undefined
             );
             setGameState(prev => {
                 const commands = Array.isArray(aiResponse.tavern_commands) ? aiResponse.tavern_commands : [];

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Command, X, RotateCcw, Loader2, Square } from 'lucide-react';
 import { CombatState } from '../../../types';
@@ -31,6 +30,7 @@ export const GameInput: React.FC<GameInputProps> = ({
     isHellMode
 }) => {
     const [input, setInput] = useState('');
+    const actionBtnSize = 'h-[52px] sm:h-[60px] w-[18vw] sm:w-[90px]';
 
     useEffect(() => {
         if (draftInput !== undefined) {
@@ -94,13 +94,15 @@ export const GameInput: React.FC<GameInputProps> = ({
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="relative group max-w-4xl mx-auto flex items-end gap-2">
+            <form onSubmit={handleSubmit} className="relative group max-w-4xl mx-auto flex items-end gap-2 sm:gap-3">
                 {onReroll ? (
                     <button
                         type="button"
                         onClick={!isProcessing ? onReroll : undefined}
                         disabled={isProcessing}
-                        className={`bg-white text-black h-[52px] sm:h-[60px] w-[76px] sm:w-[90px] transform -skew-x-6 border-2 border-transparent transition-all flex items-center justify-center shadow-lg
+                        title="重掷"
+                        aria-label="重掷"
+                        className={`bg-white text-black ${actionBtnSize} transform -skew-x-6 border-2 border-transparent transition-all flex items-center justify-center shadow-lg
                             ${isProcessing 
                                 ? 'bg-zinc-800 text-zinc-500 border-zinc-700' 
                                 : `hover:border-white ${btnHover} hover:text-white`
@@ -108,11 +110,11 @@ export const GameInput: React.FC<GameInputProps> = ({
                         `}
                     >
                         <div className="transform skew-x-6 font-display uppercase tracking-widest text-xs font-bold flex items-center gap-2">
-                            <RotateCcw size={14} /> REROLL
+                            <RotateCcw size={16} />
                         </div>
                     </button>
                 ) : (
-                    <div className="h-[52px] sm:h-[60px] w-[76px] sm:w-[90px]" />
+                    <div className={actionBtnSize} />
                 )}
 
                 <div className="flex-1 relative">
@@ -143,8 +145,7 @@ export const GameInput: React.FC<GameInputProps> = ({
                 <button 
                     type={isProcessing ? "button" : "submit"}
                     onClick={isProcessing ? handleStop : undefined}
-                    disabled={isProcessing}
-                    className={`bg-white text-black h-[52px] sm:h-[60px] w-[76px] sm:w-[90px] transform -skew-x-6 border-2 border-transparent transition-all flex items-center justify-center shadow-lg
+                    className={`bg-white text-black ${actionBtnSize} transform -skew-x-6 border-2 border-transparent transition-all flex items-center justify-center shadow-lg
                         ${isProcessing 
                             ? 'bg-red-600 text-white hover:bg-red-500 border-red-400' 
                             : `hover:border-white ${btnHover} hover:text-white disabled:bg-zinc-800 disabled:text-zinc-600`
@@ -154,7 +155,7 @@ export const GameInput: React.FC<GameInputProps> = ({
                     <div className="transform skew-x-6 font-display uppercase tracking-widest text-lg font-bold flex items-center gap-2">
                         {isProcessing ? (
                             <>
-                                <Square size={16} fill="currentColor" /> STOP
+                                <Square size={16} fill="currentColor" />
                             </>
                         ) : 'ACT'}
                     </div>
