@@ -18,6 +18,7 @@ interface CenterPanelProps {
   onSendMessage: (msg: string) => void;
   onReroll?: () => void;
   lastRawResponse?: string;
+  lastThinking?: string;
   onPlayerAction: (action: 'attack' | 'skill' | 'guard' | 'escape' | 'talk' | 'item', payload?: any) => void;
   isProcessing?: boolean;
   isStreaming?: boolean;
@@ -55,6 +56,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
     isProcessing,
     isStreaming,
     lastRawResponse,
+    lastThinking,
     commandQueue = [],
     onRemoveCommand,
     
@@ -406,6 +408,16 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
                 <div className="flex items-center gap-2 mb-2 text-green-600 font-bold uppercase tracking-widest border-b border-green-900/50 pb-1">
                     <Terminal size={12} className="animate-pulse" /> Incoming Data Stream...
                 </div>
+                {lastThinking && (
+                    <details className="mb-3 bg-emerald-950/40 border border-emerald-700/60 px-3 py-2 rounded">
+                        <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-emerald-300">
+                            AI 思考 (Streaming)
+                        </summary>
+                        <div className="mt-2 text-[10px] text-emerald-100 whitespace-pre-wrap leading-relaxed">
+                            {lastThinking}
+                        </div>
+                    </details>
+                )}
                 {lastRawResponse}
                 <span className="animate-pulse ml-1 text-green-500">_</span>
             </div>

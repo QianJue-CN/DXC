@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Settings as SettingsIcon, LogOut, Save, User, ArrowLeft, ChevronRight, HardDrive, Eye, Cpu, Smartphone, Globe, Brain, Zap, Search, RefreshCw, Download, Plus, Trash2, ToggleLeft, ToggleRight, Edit2, Check, Upload, Database, FileJson, History, FileUp, FileDown, Folder, LayoutList, List, Copy, Code, Clock, ArrowUp, ArrowDown, EyeOff, Radio, Crown, Type, Sword, Server, AlertTriangle, MousePointer2, Activity } from 'lucide-react';
 import { AppSettings, GameState, SaveSlot, PromptModule, PromptUsage } from '../../../types';
@@ -86,7 +86,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [autoSlots, setAutoSlots] = useState<SaveSlot[]>([]);
 
   // Storage Management State
-  const [storageItems, setStorageItems] = useState<{key: string, size: number, label: string, type: string}[]>([]);
+  const [storageItems, setStorageItems] = useState<{key: string, size: number, label: string, type: string, details?: string[]}[]>([]);
   const [logSearch, setLogSearch] = useState('');
 
   // File Import Ref
@@ -132,7 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const scanStorage = () => {
-      const items: {key: string, size: number, label: string, type: string}[] = [];
+      const items: {key: string, size: number, label: string, type: string, details?: string[]}[] = [];
       for(let i=0; i<localStorage.length; i++) {
           const key = localStorage.key(i);
           if(key && (key.startsWith('danmachi_') || key.startsWith('phantom_'))) {
@@ -140,10 +140,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               const size = new Blob([value]).size; 
               let label = key;
               let type = 'CACHE';
+              let details: string[] = [];
 
               if (key === 'danmachi_settings') {
                   label = '系统设置 (Settings)';
                   type = 'SETTINGS';
+                  try {
+                      const parsed = JSON.parse(value);
+                      const prompts = Array.isArray(parsed.promptModules) ? parsed.promptModules : [];
+                      const active = prompts.filter((m: any) => m && m.isActive).length;
+                      const contextMods = Array.isArray(parsed.contextConfig?.modules) ? parsed.contextConfig.modules.length : 0;
+                      details.push('提示词模块: ' + prompts.length + ' (启用 ' + active + ')');
+                      details.push('上下文模块: ' + contextMods);
+                      details.push('背景: ' + (parsed.backgroundImage ? '已保存' : '未保存'));
+                  } catch (e) {}
               } else if (key.includes('save_auto')) {
                   label = `自动存档 (Auto Save ${key.split('_').pop()})`;
                   type = 'SAVE_AUTO';
@@ -152,7 +162,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type = 'SAVE_MANUAL';
               }
 
-              items.push({ key, size, label, type });
+              if (type === 'SAVE_AUTO' || type === 'SAVE_MANUAL') {
+                  try {
+                      const parsed = JSON.parse(value);
+                      const state = parsed?.data || parsed;
+                      const avatar = state?.角色?.头像;
+                      const name = state?.角色?.姓名;
+                      const level = state?.角色?.等级;
+                      if (name) details.push('角色: ' + name);
+                      if (level !== undefined) details.push('等级: ' + level);
+                      details.push('头像: ' + (avatar ? '已保存' : '无'));
+                  } catch (e) {}
+              }
+
+              items.push({ key, size, label, type, details: details.length > 0 ? details : undefined });
           }
       }
       // Sort by type then key
@@ -497,6 +520,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                           <span className="font-mono bg-zinc-200 px-1 rounded">{item.type}</span>
                                           <span>{formatBytes(item.size)}</span>
                                       </div>
+                                      {item.details && item.details.length > 0 && (
+                                          <div className="text-[10px] text-zinc-500 mt-1">{item.details.join(' | ')}</div>
+                                      )}
                                   </div>
                                   <button onClick={() => deleteStorageItem(item.key)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="删除"><Trash2 size={16} /></button>
                               </div>

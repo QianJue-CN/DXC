@@ -94,7 +94,7 @@ const buildCotPrompt = (settings: AppSettings): string => {
     return modules.map(m => m.content).join('\n\n');
 };
 
-const extractThinkingBlocks = (rawText: string): { cleaned: string; thinking?: string } => {
+export const extractThinkingBlocks = (rawText: string): { cleaned: string; thinking?: string } => {
     if (!rawText) return { cleaned: rawText };
     const matches = Array.from(rawText.matchAll(/<thinking>([\s\S]*?)<\/thinking>/gi));
     if (matches.length === 0) return { cleaned: rawText };
@@ -526,6 +526,14 @@ export const constructInventoryContext = (
     return invContent;
 };
 
+const buildPlayerDataContext = (playerData: GameState["角色"], difficultySetting: Difficulty): string => {
+    const { 头像, 生命值, 最大生命值, ...cleanPlayerData } = playerData;
+    const filteredPlayerData = difficultySetting === Difficulty.EASY
+        ? { ...cleanPlayerData, 生命值, 最大生命值 }
+        : cleanPlayerData;
+    return `[玩家数据 (Player Data)]\n${JSON.stringify(filteredPlayerData, null, 2)}`;
+};
+
 // --- Main Prompt Assembler ---
 
 const parseDungeonFloorTrigger = (input: string): number | null => {
@@ -596,12 +604,7 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
 
         case 'PLAYER_DATA':
             // Optimization: Remove heavy avatar base64 data from context
-            const difficultySetting = gameState.游戏难度 || Difficulty.NORMAL;
-            const { 头像, 生命值, 最大生命值, ...cleanPlayerData } = gameState.角色;
-            const filteredPlayerData = difficultySetting === Difficulty.EASY
-                ? { ...cleanPlayerData, 生命值, 最大生命值 }
-                : cleanPlayerData;
-            return `[玩家数据 (Player Data)]\n${JSON.stringify(filteredPlayerData, null, 2)}`;
+            return buildPlayerDataContext(gameState.角色, gameState.游戏难度 || Difficulty.NORMAL);
         case 'MAP_CONTEXT': {
             const mapFloor = gameState.当前楼层 || 0;
             const triggerFloor = parseDungeonFloorTrigger(playerInput);

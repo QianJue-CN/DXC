@@ -114,6 +114,7 @@
 - \`gameState.战利品\`: Array<InventoryItem> (已归档战利品)
 - \`gameState.公共战利品\`: Array<InventoryItem> (探索中的临时战利品)
 - \`gameState.战利品背负者\`: String
+- 说明: 公共战利品 = 地下城临时/已拾取但未分配；战利品 = 眷族/仓库归档。战利品一般情况下不进入背包，除非叙事明确分配/拾取。
 
 ## 5. 社交系统 (gameState.社交)
 *Array<Confidant>*

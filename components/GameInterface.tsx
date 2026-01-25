@@ -45,7 +45,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
       gameState, setGameState,
       settings, saveSettings,
       commandQueue, pendingCommands, addToQueue, removeFromQueue,
-      currentOptions, lastAIResponse, isProcessing, isStreaming,
+      currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming,
       draftInput, setDraftInput,
       memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
       handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleSilentWorldUpdate,
@@ -198,6 +198,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         onSendMessage={handlePlayerInput}
                         onReroll={handleReroll}
                         lastRawResponse={lastAIResponse}
+                        lastThinking={lastAIThinking}
                         onPlayerAction={handlePlayerAction}
                         isProcessing={isProcessing}
                         isStreaming={isStreaming}
@@ -269,6 +270,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         onSendMessage={handlePlayerInput}
                         onReroll={handleReroll}
                         lastRawResponse={lastAIResponse}
+                        lastThinking={lastAIThinking}
                         onPlayerAction={handlePlayerAction}
                         isProcessing={isProcessing}
                         isStreaming={isStreaming}

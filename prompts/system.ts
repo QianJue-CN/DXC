@@ -27,16 +27,23 @@ text写什么, tavern_commands就必须更新什么。
 顶层: gameState.角色. | gameState.社交. | gameState.世界. | gameState.背包.
 NPC路径: 修改NPC属性时，**必须**使用数组索引定位，如 \`gameState.社交[0].好感度\`。严禁使用 \`社交.希儿.好感度\` 这种非法路径。
 背包路径: 修改物品数量时，使用 \`gameState.背包[i].数量\`。
+时间指令: 涉及 \`gameState.游戏时间\` / \`gameState.当前日期\` 等时间字段，**必须**使用 \`set\`，禁止 \`add\`。
 占位符规则(CRITICAL): 下文中的 {i} 是索引占位符，输出key必须替换为真实数字索引(0,1,2...)。
 
 [必须生成指令的场景]
-□ 时间/位置变化 → set gameState.游戏时间 / set gameState.当前地点 / set gameState.世界坐标
-□ 物品获得 → push gameState.背包 (必须生成完整InventoryItem结构, id需唯一)
+□ 时间/日期/位置变化 → set gameState.游戏时间 / set gameState.当前日期 / set gameState.当前地点 / set gameState.世界坐标
+□ 物品获得(明确拾取/收到/放入背包) → push gameState.背包 (必须生成完整InventoryItem结构, id需唯一)
+□ 掉落但未拾取 → 仅叙事描述，不生成指令
 □ 物品消耗 → add gameState.背包[i].数量 -1 (若数量归0，则 delete gameState.背包[i])
 □ 战斗伤害 → add gameState.角色.生命值 -X / add gameState.角色.身体部位.胸部.当前 -X
 □ 属性变化 → add gameState.角色.能力值.力量 1 (仅限恩惠更新时)
 □ 社交变化 → add gameState.社交[i].好感度 X / push gameState.社交 (新NPC) / set gameState.社交[i].是否在场 true
 □ 任务更新 → set gameState.任务[i].状态 "completed"
+
+[叙事-指令一致性]
+- \`tavern_commands\` 必须严格对应 \`logs\` 叙事内容，禁止“叙事未发生、指令先行”。
+- 叙事仅描述“递过去/掉落/发现”但未明确“拾取/收入/分配/上交/放入”时，**禁止**把物品加入背包、公共战利品或战利品仓库。
+- 只有明确“拾取/装入公共包/交给背负者/分配/上交”时，才允许生成公共战利品或战利品仓库相关指令。
 
 [指令操作示例库](重要参考)
 
@@ -71,11 +78,27 @@ NPC路径: 修改NPC属性时，**必须**使用数组索引定位，如 \`gameS
 - **NPC完整性**: 创建NPC必须包含 \`姓名/种族/年龄/身份/眷族/等级/好感度/关系状态/是否在场/已交换联系方式/记忆/当前行动/外貌/坐标\`，禁止创建残缺对象。
 
 ### 响应结构 (JSON Structure)
+**输出顺序 (Order)**:
+1. \`<thinking>...\n</thinking>\`
+2. JSON 对象（严格符合下方结构）
+
+**<thinking> 思考过程要求**:
+- 必须使用成对标签包裹：\`<thinking>...\` 和 \`</thinking>\`。
+- 只包含推理/规划/取舍，不得混入叙事文本或 \`tavern_commands\`。
+- \`<thinking>\` 内容必须置于 JSON 之前，且不得出现在 JSON 中。
+
 **灵活穿插 (Interleaving)**: 所有剧情描述（旁白）和角色对话必须统一放入 \`logs\` 数组。
 - **禁止使用** \`system/系统\` 作为 sender。
 - **Logs 只允许沉浸式描写与对话**，任何状态变化只体现在 \`tavern_commands\` 中。
 - **旁白**: 使用 \`"sender": "旁白"\` (Narrative/Descriptions)。
 - **对话**: 使用 \`"sender": "角色名"\` (Dialogue)。
+
+示例输出格式:
+\`\`\`text
+<thinking>
+在本回合中需要推进时间并处理掉落，但叙事未明确拾取，因此只进行叙事描述。
+</thinking>
+\`\`\`
 
 \`\`\`json
 {

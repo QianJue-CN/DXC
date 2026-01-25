@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, PhoneMessage, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
-import { generateDungeonMasterResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary } from '../utils/ai';
+import { generateDungeonMasterResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks } from '../utils/ai';
 import { P_MEM_S2M, P_MEM_M2L } from '../prompts';
 import { Difficulty } from '../types/enums';
 
@@ -143,6 +143,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const [pendingCommands, setPendingCommands] = useState<CommandItem[]>([]);
     const [currentOptions, setCurrentOptions] = useState<ActionOption[]>([]);
     const [lastAIResponse, setLastAIResponse] = useState<string>('');
+    const [lastAIThinking, setLastAIThinking] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
     const [draftInput, setDraftInput] = useState<string>('');
@@ -373,6 +374,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         
         setIsProcessing(true);
         setLastAIResponse('');
+        setLastAIThinking('');
         if (settings.enableStreaming) setIsStreaming(true);
         
         const logText = logInputOverride ?? input;
@@ -396,7 +398,11 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         
         try {
 
-            const onStreamChunk = (chunk: string) => setLastAIResponse(chunk);
+            const onStreamChunk = (chunk: string) => {
+                const { cleaned, thinking } = extractThinkingBlocks(chunk);
+                setLastAIResponse(cleaned || chunk);
+                if (thinking) setLastAIThinking(thinking);
+            };
 
             const aiResponse = await generateDungeonMasterResponse(
                 input, 
@@ -407,6 +413,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 onStreamChunk
             );
             
+            setLastAIThinking(aiResponse.thinking || '');
             setGameState(prev => {
                 if (aiResponse.rawResponse) setLastAIResponse(aiResponse.rawResponse);
                 if (aiResponse.action_options) setCurrentOptions(aiResponse.action_options || []);
@@ -791,7 +798,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
 
     return {
         gameState, setGameState, settings, setSettings,
-        commandQueue, pendingCommands, addToQueue, removeFromQueue, currentOptions, lastAIResponse, isProcessing, isStreaming, draftInput, setDraftInput,
+        commandQueue, pendingCommands, addToQueue, removeFromQueue, currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming, draftInput, setDraftInput,
         memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
         handleAIInteraction, stopInteraction, handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleSilentWorldUpdate, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
         handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask,

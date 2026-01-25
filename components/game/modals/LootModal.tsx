@@ -64,6 +64,7 @@ export const LootModal: React.FC<LootModalProps> = ({ isOpen, onClose, items, ca
                     const durCurrent = item.耐久 ?? null;
                     const durMax = item.最大耐久 ?? null;
                     const durPercent = durCurrent !== null && durMax ? Math.min(100, (durCurrent / durMax) * 100) : null;
+                    const fullData = JSON.stringify(item, null, 2);
                     return (
                     <div key={item.id} className={`relative bg-[#0c0a09] border-2 ${style.border} p-4 flex flex-col gap-3 hover:bg-[#1c1917] transition-all group ${style.glow}`}>
                         
@@ -131,6 +132,11 @@ export const LootModal: React.FC<LootModalProps> = ({ isOpen, onClose, items, ca
                                 </div>
                             </div>
                         )}
+
+                        <details className="text-[10px] text-[#a8a29e] border border-[#78350f] bg-black/40 p-2">
+                            <summary className="cursor-pointer text-[9px] uppercase tracking-widest text-[#d4af37]">完整数据</summary>
+                            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[9px] text-[#e7e5e4]">{fullData}</pre>
+                        </details>
 
                         {/* Corner Accents */}
                         <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#78350f] group-hover:border-[#d4af37]" />

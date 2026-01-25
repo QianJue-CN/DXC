@@ -67,6 +67,7 @@ export const LootVaultModal: React.FC<LootVaultModalProps> = ({ isOpen, onClose,
               const durCurrent = item.耐久 ?? null;
               const durMax = item.最大耐久 ?? null;
               const durPercent = durCurrent !== null && durMax ? Math.min(100, (durCurrent / durMax) * 100) : null;
+              const fullData = JSON.stringify(item, null, 2);
 
               return (
                 <div key={item.id} className={`relative bg-black/70 border-2 ${style.border} p-4 flex flex-col gap-3 ${style.glow}`}>
@@ -131,6 +132,11 @@ export const LootVaultModal: React.FC<LootVaultModalProps> = ({ isOpen, onClose,
                       </div>
                     </div>
                   )}
+
+                  <details className="text-[10px] text-zinc-400 border border-zinc-800 bg-black/40 p-2">
+                    <summary className="cursor-pointer text-[9px] uppercase tracking-widest text-amber-300">完整数据</summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[9px] text-zinc-200">{fullData}</pre>
+                  </details>
                 </div>
               );
             }) : (
