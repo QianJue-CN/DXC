@@ -106,6 +106,24 @@ export const extractThinkingBlocks = (rawText: string): { cleaned: string; think
     return { cleaned, thinking };
 };
 
+export const normalizeThinkingField = (value?: unknown): string => {
+    if (typeof value !== 'string') return "";
+    const extracted = extractThinkingBlocks(value).thinking;
+    return (extracted || value).trim();
+};
+
+export const mergeThinkingSegments = (response?: Partial<AIResponse>): string => {
+    if (!response) return "";
+    const thinkingPre = normalizeThinkingField((response as any).thinking_pre);
+    const thinkingPost = normalizeThinkingField((response as any).thinking_post);
+    const thinkingLegacy = normalizeThinkingField((response as any).thinking);
+    const segments: string[] = [];
+    if (thinkingPre) segments.push(`[思考-前]\n${thinkingPre}`);
+    if (thinkingPost) segments.push(`[思考-后]\n${thinkingPost}`);
+    if (!thinkingPre && !thinkingPost && thinkingLegacy) segments.push(thinkingLegacy);
+    return segments.join('\n\n').trim();
+};
+
 const extractJsonFromFence = (rawText: string): string | null => {
     const match = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i);
     return match ? match[1].trim() : null;
@@ -1038,10 +1056,7 @@ export const generateDungeonMasterResponse = async (
         const parsedResult = parseAIResponseText(rawText);
         if (parsedResult.response) {
             const parsed = parsedResult.response as AIResponse;
-            const rawThinking = typeof (parsed as any).thinking === 'string' ? (parsed as any).thinking : '';
-            const parsedThinking = rawThinking
-                ? (extractThinkingBlocks(rawThinking).thinking || rawThinking)
-                : '';
+            const parsedThinking = mergeThinkingSegments(parsed);
             return {
                 ...parsed,
                 rawResponse: rawText,

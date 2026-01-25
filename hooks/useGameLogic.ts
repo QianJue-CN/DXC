@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, PhoneMessage, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
-import { generateDungeonMasterResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText } from '../utils/ai';
+import { generateDungeonMasterResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText, mergeThinkingSegments } from '../utils/ai';
 import { P_MEM_S2M, P_MEM_M2L } from '../prompts';
 import { Difficulty } from '../types/enums';
 
@@ -908,8 +908,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
 
             const turnIndex = typeof targetLog.turnIndex === 'number' ? targetLog.turnIndex : (baseState.回合数 || 0);
             const aiLogGameTime = baseState.游戏时间;
-            const rawThinking = typeof parsedResult.response.thinking === 'string' ? parsedResult.response.thinking : '';
-            const parsedThinking = rawThinking ? (extractThinkingBlocks(rawThinking).thinking || rawThinking) : undefined;
+            const parsedThinking = mergeThinkingSegments(parsedResult.response);
             const parsedRepairNote = parsedResult.repairNote;
             const newLogsForResponse: LogEntry[] = sourceLogs.map((l, idx) => {
                 let sender = l.sender;

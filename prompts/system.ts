@@ -1,4 +1,4 @@
-﻿
+
 export const P_SYS_FORMAT = `[数据同步协议](铁律)
 text写什么, tavern_commands就必须更新什么。
 **严禁使用 update 指令。严禁使用 ambiguous commands。** 
@@ -80,11 +80,14 @@ NPC路径: 修改NPC属性时，**必须**使用数组索引定位，如 \`gameS
 ### 响应结构 (JSON Structure)
 **输出要求 (Order)**:
 - **只允许输出单一 JSON 对象**（禁止 JSON 之外的任何文本）。
+- **输出顺序必须是**：thinking_pre → logs → thinking_post → tavern_commands → shortTerm
 
-**thinking 字段要求**:
-- JSON 必须包含 \`thinking\` 字段。
-- \`thinking\` 字段值必须使用成对标签包裹：\`<thinking>...\` 和 \`</thinking>\`。
-- 仅包含推理/规划/取舍，不得混入叙事文本或 \`tavern_commands\`。
+**thinking_pre / thinking_post 字段要求**:
+- JSON 必须包含 \`thinking_pre\` 与 \`thinking_post\` 字段。
+- 两个字段值必须使用成对标签包裹：\`<thinking>...\` 和 \`</thinking>\`。
+- \`thinking_pre\`：为原有的思考内容（规划/分析）。  
+- \`thinking_post\`：基于 \`logs\` 对命令进行二次校验与纠错的思考（必须检查“叙事-指令一致性”）。
+- 两段思考都不得混入叙事文本或 \`tavern_commands\`。
 
 **灵活穿插 (Interleaving)**: 所有剧情描述（旁白）和角色对话必须统一放入 \`logs\` 数组。
 - **禁止使用** \`system/系统\` 作为 sender。
@@ -95,12 +98,13 @@ NPC路径: 修改NPC属性时，**必须**使用数组索引定位，如 \`gameS
 示例输出格式:
 \`\`\`json
 {
-  "thinking": "<thinking>在本回合中需要推进时间并处理掉落，但叙事未明确拾取，因此只进行叙事描述。</thinking>",
+  "thinking_pre": "<thinking>在本回合中需要推进时间并处理掉落，但叙事未明确拾取，因此只进行叙事描述。</thinking>",
   "logs": [
     { "sender": "旁白", "text": "你推开‘丰饶的女主人’的木门，喧闹声扑面而来。" },
     { "sender": "希儿", "text": "欢迎光临！啊，是没见过的生面孔呢？" },
     { "sender": "旁白", "text": "灰发的少女微笑着递给你菜单，她的眼神中带着一丝好奇。" }
   ],
+  "thinking_post": "<thinking>复核 logs：本回合无明确拾取叙事，因此不生成任何物品指令，仅更新时间与地点。</thinking>",
   "tavern_commands": [
     { "action": "add", "key": "gameState.社交[0].好感度", "value": 5 },
     { "action": "add", "key": "gameState.世界.眷族声望", "value": 1 },

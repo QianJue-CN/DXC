@@ -144,6 +144,8 @@ export interface AIResponse {
   shortTerm?: string; // NEW: Replaces 'summary'. Represents the memory entry for this turn.
   rawResponse?: string;
   thinking?: string; // AI思考内容（<thinking>解析结果）
+  thinking_pre?: string; // 第一段思考
+  thinking_post?: string; // 第二段思考
   narrative?: string; // Optional for legacy support
   repairNote?: string; // 本地修复提示
 }

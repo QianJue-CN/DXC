@@ -1,12 +1,16 @@
 export const P_COT_LOGIC = `
 # 【COT 预思考协议 | JSON thinking 字段专用】
-# - 思考输出位置: 仅写入 JSON 字段 "thinking"，并使用 <thinking>...</thinking> 包裹。
+# - 思考输出位置: 仅写入 JSON 字段 "thinking_pre" 与 "thinking_post"，并使用 <thinking>...</thinking> 包裹。
 # - thinking 只包含推理/规划/取舍，不写剧情文本，不写 tavern_commands。
 # - 任何判断必须以当前上下文为准，禁止臆造字段或事实。
 
 <thinkform>
 
 用户意图："{{用户输入}}"
+
+## 输出分段要求
+- 第一段思考（thinking_pre）：执行本提示词全部步骤并给出规划。
+- 第二段思考（thinking_post）：在生成 logs 之后，基于 logs 再次检查指令一致性与变量变更，纠错后再输出 tavern_commands。
 
 ## 0. 游戏难度思考
 - 读取 [当前世界时间] 与 gameState.游戏难度，并结合已启用的【难度系统/判定系统/生理系统】提示词，确定整体基调与容错。
