@@ -195,7 +195,7 @@
 - \`gameState.世界.街头传闻\`: Array<{ "主题": String, "传播度": Number }>
 - \`gameState.世界.诸神神会\`: { "下次神会开启时间": String, "神会主题": String, "讨论内容": Array<{ "角色": String, "对话": String }>, "最终结果": String }
 - \`gameState.世界.NPC后台跟踪\`: Array<{ "NPC": String, "当前行动": String, "位置?": String, "进度?": String, "预计完成?": String }>
-- \`gameState.世界.下次更新\`: String
+- \`gameState.世界.下次更新\`: String（每回合需确认是否已经抵达下次更新时间，若抵达则更具体的日期如：第一日 18:00）
 
 ## 10. 地图系统 (gameState.地图)
 - \`gameState.地图.config\`: { "width": Number, "height": Number }

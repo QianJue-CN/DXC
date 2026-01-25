@@ -1,5 +1,5 @@
 
-export const P_DYN_NPC = `【动态世界与位置 (Dynamic Presence)】
+export const P_DYN_NPC = `【动态世界与位置】
 ⚠️ **CRITICAL: NPC 坐标同步**
 当玩家移动 (\`gameState.当前地点\` 改变) 时，系统必须重新计算关键 NPC 的位置。
 
@@ -18,7 +18,7 @@ export const P_DYN_NPC = `【动态世界与位置 (Dynamic Presence)】
    - 朋友圈动态生成: "阿波罗眷族在广场举办宴会"。
    - 私聊推送: 关系好的NPC发来问候。`;
 
-export const P_NPC_MEMORY = `【NPC 记忆写入法则 (NPC Memory Injection)】
+export const P_NPC_MEMORY = `【NPC 记忆写入法则】
 **铁律**: NPC 不是只会说话的木偶，他们拥有记忆。
 
 1. **初次登场**:
