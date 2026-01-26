@@ -43,7 +43,13 @@ const DEFAULT_SETTINGS: AppSettings = {
         }
     },
     memoryConfig: DEFAULT_MEMORY_CONFIG,
-    contextConfig: DEFAULT_CONTEXT_CONFIG
+    contextConfig: DEFAULT_CONTEXT_CONFIG,
+    writingConfig: {
+        enableWordCountRequirement: false,
+        requiredWordCount: 800,
+        enableNarrativePerspective: true,
+        narrativePerspective: 'third',
+    }
 };
 
 export const useAppSettings = () => {

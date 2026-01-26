@@ -79,6 +79,17 @@ export interface MemoryConfig {
     longTermLimit: number;
 }
 
+export interface WritingConfig {
+    /** 是否启用字数要求 */
+    enableWordCountRequirement: boolean;
+    /** 要求的正文字数，默认800 */
+    requiredWordCount: number;
+    /** 是否启用写作人称管理 */
+    enableNarrativePerspective: boolean;
+    /** 人称模式：'third' 第三人称，'first' 第一人称 */
+    narrativePerspective: 'third' | 'first';
+}
+
 // --- New Context Management Types (V2) ---
 
 export type ContextModuleType = 
@@ -127,6 +138,7 @@ export interface AppSettings {
   aiConfig: GlobalAISettings;
   memoryConfig: MemoryConfig;
   contextConfig: ContextConfig;
+  writingConfig: WritingConfig;
 }
 
 // --- Tavern Command Protocol ---

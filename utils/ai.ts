@@ -760,6 +760,58 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
                 if (groupDiff !== 0) return groupDiff;
                 return a.order - b.order;
             });
+            // 如果启用人称管理，在写作要求模块之前插入提示
+            if (settings.writingConfig?.enableNarrativePerspective) {
+                const perspective = settings.writingConfig.narrativePerspective;
+                const narrativePrompt = perspective === 'third'
+                    ? `<写作人称>
+  1. **第三人称叙述原则**:
+     - **严格视角限制**: 所有叙述必须采用第三人称有限视角，仅描写外部可观察的事实、环境变化、角色（非玩家）的言行举止以及感官可感知的物理现象。绝不允许使用第二人称“你……”或第一人称“我……”的表述。
+     - **玩家指代规则**: 统一使用“<玩家>”或玩家在设定中指定的名字（如“艾伦”）来指代用户角色。绝不使用“你”来直接称呼玩家。
+     - **严禁心理越权**: 绝对禁止描写<玩家>的内部心理活动、想法、感受、意图或主观判断（如“<玩家>感到恐惧”“<玩家>决定反击”）。
+     - **客观感官描写**: 可以描写环境对<玩家>产生的物理影响，但必须保持纯粹客观，避免任何主观情感或生理解读。
+     - *正确示范*: 巨龙张开巨口咆哮，震得洞顶碎石簌簌落下。炽热的龙息喷涌而出，空气瞬间变得灼热，热浪扑向<玩家>，让周围的地面都泛起焦痕。
+     - *错误示范1（第二人称）*: 你感到热浪扑面，呼吸变得困难。
+     - *错误示范2（心理越权）*: <玩家>心中一惊，腿软得几乎站不住。
+     - *错误示范3（主观解读）*: <玩家>被龙威震慑，决定转身逃跑。
+     - *错误示范4（混合人称）*: 你看到巨龙喷出火焰，艾伦吓得后退一步。
+
+  2. **输出纯净性要求**:
+     - 所有输出仅包含场景描述、你扮演的角色（及NPC）的言行动作、对话以及客观环境变化。<玩家>的任何行动、对话或反应必须完全留白，由玩家自行输入。
+     - 如果剧情因<玩家>输入不足而无法推进，你扮演的角色可以自然地发问、观察或等待，但绝不能代为描述<玩家>的反应或推动事件。
+     - 每条回复都必须保持纯粹的第三人称叙述风格，违反任何一条均视为破坏沉浸感，必须无条件避免。
+</写作人称>`
+                    : `<写作人称>
+  1. **第一人称叙述原则**:
+     - **视角限制**: 所有叙述必须采用第一人称视角，以“我”作为叙述者，描写玩家角色所见、所闻、所感。禁止使用第二人称“你……”或第三人称“他/她……”来指代玩家。
+     - **玩家指代规则**: 使用“我”来指代玩家角色，或使用玩家在设定中指定的名字（如“艾伦”）作为自称。禁止使用“你”来直接称呼玩家。
+     - **允许心理描写**: 可以描写玩家的内部心理活动、想法、感受、意图，但需保持与角色一致性。
+     - **客观感官描写**: 可以描写环境对玩家产生的物理影响，以及玩家的主观感受。
+     - *正确示范*: 巨龙张开巨口咆哮，震得洞顶碎石簌簌落下。炽热的龙息喷涌而出，空气瞬间变得灼热，我感到热浪扑面，呼吸变得困难。
+     - *错误示范1（第二人称）*: 你感到热浪扑面，呼吸变得困难。
+     - *错误示范2（第三人称）*: <玩家>心中一惊，腿软得几乎站不住。
+     - *错误示范3（混合人称）*: 你看到巨龙喷出火焰，艾伦吓得后退一步。
+  2. **输出纯净性要求**:
+     - 所有输出仅包含场景描述、你扮演的角色（及NPC）的言行动作、对话以及客观环境变化。玩家的行动、对话或反应必须由玩家自行输入，但可以包含玩家的心理感受。
+     - 如果剧情因玩家输入不足而无法推进，你扮演的角色可以自然地发问、观察或等待，但绝不能代为描述玩家的反应或推动事件。
+     - 每条回复都必须保持纯粹的第一人称叙述风格。
+</写作人称>`;
+                // 找到写作要求模块的索引
+                const writingIndex = sorted.findIndex(m => m.id === 'sys_writing');
+                if (writingIndex >= 0) {
+                    // 在写作要求之前插入虚拟模块
+                    const narrativeModule: PromptModule = {
+                        id: 'narrative_perspective',
+                        name: '写作人称',
+                        group: '系统设定',
+                        usage: 'CORE',
+                        isActive: true,
+                        content: narrativePrompt,
+                        order: sorted[writingIndex].order - 0.5
+                    };
+                    sorted.splice(writingIndex, 0, narrativeModule);
+                }
+            }
             let content = sorted.map(m => m.content).join('\n\n');
             if (settings.enableActionOptions) content += "\n\n" + P_ACTION_OPTIONS;
             return content;
@@ -819,6 +871,11 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
             return commandHistory.length > 0 ? `[指令历史]\n${commandHistory.join('\n')}` : "[指令历史] (Empty)";
         case 'USER_INPUT':
             let inputText = `\n[玩家输入]\n"${playerInput}"`;
+            // 字数要求提示
+            if (settings.writingConfig?.enableWordCountRequirement) {
+                const required = settings.writingConfig.requiredWordCount || 800;
+                inputText += `\n\n- 本次"logs"内的正文**必须${required}字**以上`;
+            }
             if (settings.aiConfig?.nativeThinkingChain !== false) {
                 inputText += `\n<think>好，思考结束</think>`;
             }

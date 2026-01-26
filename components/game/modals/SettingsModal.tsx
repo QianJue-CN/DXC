@@ -921,6 +921,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
           </div>
 
+          {/* 字数要求设置 */}
+          <div className="bg-white p-6 border border-zinc-200 shadow-sm mb-4">
+              <h4 className="font-bold uppercase text-zinc-500 mb-4 flex items-center gap-2">
+                  <Type size={16} /> 字数要求 (Word Count Requirement)
+              </h4>
+              <div className="flex items-center justify-between p-4 bg-zinc-50 border border-zinc-200">
+                  <div>
+                      <h5 className="font-bold text-sm text-black">启用字数要求</h5>
+                      <p className="text-[10px] text-zinc-500">开启后，AI 会在玩家输入后检查日志字数，若不足则提示补充。</p>
+                  </div>
+                  <button
+                      onClick={() => setFormData(prev => ({
+                          ...prev,
+                          writingConfig: {
+                              ...prev.writingConfig,
+                              enableWordCountRequirement: !prev.writingConfig.enableWordCountRequirement
+                          }
+                      }))}
+                      className={`text-2xl transition-colors ${formData.writingConfig.enableWordCountRequirement ? 'text-green-600' : 'text-zinc-300'}`}
+                  >
+                      {formData.writingConfig.enableWordCountRequirement ? <ToggleRight size={36}/> : <ToggleLeft size={36}/>}
+                  </button>
+              </div>
+              <div className="flex items-center gap-4 mt-4">
+                  <input
+                      type="number"
+                      min="1"
+                      max="5000"
+                      disabled={!formData.writingConfig.enableWordCountRequirement}
+                      value={formData.writingConfig.requiredWordCount ?? 800}
+                      onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          writingConfig: {
+                              ...prev.writingConfig,
+                              requiredWordCount: parseInt(e.target.value) || 800
+                          }
+                      }))}
+                      className="w-32 bg-zinc-50 border-b-2 border-zinc-300 p-2 font-mono text-sm disabled:opacity-50"
+                  />
+                  <span className="text-xs text-zinc-500">字 (默认 800)</span>
+              </div>
+          </div>
+
+          {/* 写作人称管理设置 */}
+          <div className="bg-white p-6 border border-zinc-200 shadow-sm mb-4">
+              <h4 className="font-bold uppercase text-zinc-500 mb-4 flex items-center gap-2">
+                  <User size={16} /> 写作人称管理 (Narrative Perspective)
+              </h4>
+              <div className="flex items-center justify-between p-4 bg-zinc-50 border border-zinc-200">
+                  <div>
+                      <h5 className="font-bold text-sm text-black">启用写作人称管理</h5>
+                      <p className="text-[10px] text-zinc-500">开启后，AI 将根据选定的人称模式（第一人称/第三人称）调整叙述风格。</p>
+                  </div>
+                  <button
+                      onClick={() => setFormData(prev => ({
+                          ...prev,
+                          writingConfig: {
+                              ...prev.writingConfig,
+                              enableNarrativePerspective: !prev.writingConfig.enableNarrativePerspective
+                          }
+                      }))}
+                      className={`text-2xl transition-colors ${formData.writingConfig.enableNarrativePerspective ? 'text-green-600' : 'text-zinc-300'}`}
+                  >
+                      {formData.writingConfig.enableNarrativePerspective ? <ToggleRight size={36}/> : <ToggleLeft size={36}/>}
+                  </button>
+              </div>
+              <div className="flex items-center gap-4 mt-4">
+                  <div className="flex gap-4">
+                      <button
+                          onClick={() => setFormData(prev => ({
+                              ...prev,
+                              writingConfig: {
+                                  ...prev.writingConfig,
+                                  narrativePerspective: 'first'
+                              }
+                          }))}
+                          className={`py-2 px-4 border-2 font-display uppercase tracking-widest transition-all
+                              ${formData.writingConfig.narrativePerspective === 'first'
+                                  ? 'bg-black text-white border-black shadow-[4px_4px_0_rgba(255,0,0,0.5)]'
+                                  : 'bg-white text-zinc-400 border-zinc-200 hover:border-black hover:text-black'
+                              }
+                          `}
+                      >
+                          第一人称
+                      </button>
+                      <button
+                          onClick={() => setFormData(prev => ({
+                              ...prev,
+                              writingConfig: {
+                                  ...prev.writingConfig,
+                                  narrativePerspective: 'third'
+                              }
+                          }))}
+                          className={`py-2 px-4 border-2 font-display uppercase tracking-widest transition-all
+                              ${formData.writingConfig.narrativePerspective === 'third'
+                                  ? 'bg-black text-white border-black shadow-[4px_4px_0_rgba(255,0,0,0.5)]'
+                                  : 'bg-white text-zinc-400 border-zinc-200 hover:border-black hover:text-black'
+                              }
+                          `}
+                      >
+                          第三人称
+                      </button>
+                  </div>
+                  <span className="text-xs text-zinc-500">默认第三人称</span>
+              </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Avatar Upload */}
               <div className="bg-white p-6 border border-zinc-200 shadow-sm flex flex-col items-center">

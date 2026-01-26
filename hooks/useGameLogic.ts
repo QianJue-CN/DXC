@@ -81,6 +81,12 @@ const DEFAULT_SETTINGS: AppSettings = {
             npcSync: { ...DEFAULT_AI_CONFIG },
             npcBrain: { ...DEFAULT_AI_CONFIG },
         }
+    },
+    writingConfig: {
+        enableWordCountRequirement: false,
+        requiredWordCount: 800,
+        enableNarrativePerspective: true,
+        narrativePerspective: 'third',
     }
 };
 
