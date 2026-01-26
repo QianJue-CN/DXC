@@ -1000,10 +1000,10 @@ export const dispatchAIRequest = async (
         }
     } else if (config.provider === 'openai' || config.provider === 'deepseek' || config.provider === 'custom') {
         let baseUrl = config.baseUrl;
-        if (config.provider === 'deepseek') baseUrl = 'https://api.deepseek.com';
+        if (config.provider === 'deepseek') baseUrl = 'https://api.deepseek.com/v1';
         else if (config.provider === 'openai') baseUrl = 'https://api.openai.com/v1';
         baseUrl = baseUrl.replace(/\/$/, "");
-        const model = config.modelId || 'gpt-4o-mini';
+        const model = config.modelId || (config.provider === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini');
 
         try {
             const response = await fetch(`${baseUrl}/chat/completions`, {

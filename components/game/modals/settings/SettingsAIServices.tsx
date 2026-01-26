@@ -160,7 +160,7 @@ const AIConfigForm = ({ config, onChange, label }: { config: AIEndpointConfig, o
                     throw new Error(data.error.message);
                 }
             } else if (config.provider === 'deepseek') {
-                models = ['deepseek-chat', 'deepseek-coder'];
+                models = ['deepseek-chat', 'deepseek-reasoner'];
                 setFetchedModels(models);
                 setShowModelList(true);
                 setIsFetchingModels(false);
@@ -196,7 +196,7 @@ const AIConfigForm = ({ config, onChange, label }: { config: AIEndpointConfig, o
                      {['gemini', 'openai', 'deepseek', 'custom'].map(p => (
                          <button 
                             key={p}
-                            onClick={() => onChange({...config, provider: p as any, baseUrl: p === 'gemini' ? 'https://generativelanguage.googleapis.com' : p === 'openai' ? 'https://api.openai.com/v1' : p === 'deepseek' ? 'https://api.deepseek.com' : ''})}
+                            onClick={() => onChange({...config, provider: p as any, baseUrl: p === 'gemini' ? 'https://generativelanguage.googleapis.com' : p === 'openai' ? 'https://api.openai.com/v1' : p === 'deepseek' ? 'https://api.deepseek.com/v1' : ''})}
                             className={`px-4 py-2 text-sm font-bold uppercase border-2 ${config.provider === p ? 'bg-black text-white border-black' : 'bg-white text-zinc-400 border-zinc-200'}`}
                          >
                             {p}
