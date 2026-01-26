@@ -6,6 +6,7 @@ export interface AIEndpointConfig {
   baseUrl: string;
   apiKey: string;
   modelId: string;
+  forceJsonOutput?: boolean;
 }
 
 export interface GlobalAISettings {

@@ -227,6 +227,19 @@ const AIConfigForm = ({ config, onChange, label }: { config: AIEndpointConfig, o
                         {isFetchingModels ? <RefreshCw className="animate-spin" size={16} /> : <List size={16} />}
                     </button>
                 </div>
+                
+                <div className="mt-2 flex items-center gap-2">
+                    <input 
+                        type="checkbox" 
+                        id={`force-json-${label || 'config'}`} 
+                        checked={config.forceJsonOutput || false}
+                        onChange={e => onChange({...config, forceJsonOutput: e.target.checked})}
+                        className="w-4 h-4 text-red-600 border-zinc-300 rounded focus:ring-red-500"
+                    />
+                    <label htmlFor={`force-json-${label || 'config'}`} className="text-xs font-bold uppercase text-zinc-600 select-none cursor-pointer">
+                        强制 JSON 输出
+                    </label>
+                </div>
 
                 {showModelList && fetchedModels.length > 0 && (
                     <div className="absolute top-full right-0 w-full md:w-64 bg-white border-2 border-black z-50 shadow-xl mt-1 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">

@@ -33,12 +33,12 @@ const DEFAULT_SETTINGS: AppSettings = {
     promptModules: DEFAULT_PROMPT_MODULES,
     aiConfig: {
         mode: 'unified',
-        unified: { provider: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com', apiKey: '', modelId: 'gemini-3-flash-preview' },
+        unified: { provider: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com', apiKey: '', modelId: 'gemini-3-flash-preview', forceJsonOutput: false },
         services: {
-            social: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '' },
-            world: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '' },
-            npcSync: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '' },
-            npcBrain: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '' },
+            social: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
+            world: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
+            npcSync: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
+            npcBrain: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
         }
     },
     memoryConfig: DEFAULT_MEMORY_CONFIG,
