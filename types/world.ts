@@ -106,6 +106,38 @@ export interface NpcBackgroundTracking {
   预计完成?: string;
 }
 
+export interface FactionTierState {
+  S级: string[];
+  A级: string[];
+  B级至I级: string[];
+  备注?: string;
+}
+
+export interface WarGameState {
+  状态: '未开始' | '筹备' | '进行中' | '结束' | string;
+  参战眷族: string[];
+  形式: string;
+  赌注: string;
+  举办时间?: string;
+  结束时间?: string;
+  结果?: string;
+  备注?: string;
+}
+
+export interface XenosIntel {
+  名称: string;
+  种类: string;
+  立场: string;
+  情报等级: string;
+  状态: string;
+  备注?: string;
+}
+
+export interface XenosState {
+  记录: XenosIntel[];
+  通缉状态?: string;
+}
+
 // Refactor Business States to Chinese
 export interface WorldState {
   异常指数: number; // tensionLevel
@@ -114,6 +146,9 @@ export interface WorldState {
   街头传闻: { 主题: string; 传播度: number }[]; // activeRumors
   诸神神会: DenatusState;
   NPC后台跟踪: NpcBackgroundTracking[];
+  派阀格局?: FactionTierState;
+  战争游戏?: WarGameState;
+  异端儿情报?: XenosState;
   下次更新?: string; // nextUpdate
 }
 

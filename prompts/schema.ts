@@ -20,6 +20,7 @@
 - \`gameState.角色.称号\`: String
 - \`gameState.角色.种族\`: String ("人类", "精灵", "矮人", "小人族", "亚马逊", "兽人")
 - \`gameState.角色.所属眷族\`: String
+- \`gameState.角色.恩惠状态\`: String ("未授予" | "已授予")
 - \`gameState.角色.等级\`: Number (Level)
 - \`gameState.角色.外貌\`: String
 - \`gameState.角色.背景\`: String
@@ -67,7 +68,18 @@
 - \`gameState.角色.疲劳度\`: Number (0-100)
 - \`gameState.角色.公会评级\`: String ("I" 到 "S")
 
+**公会与登记**
+- \`gameState.角色.公会登记.状态\`: String ("未登记" | "登记中" | "已登记")
+- \`gameState.角色.公会登记.专属顾问\`: String
+- \`gameState.角色.公会登记.公会卡\`: String
+- \`gameState.角色.公会登记.讲习会.状态\`: String ("未参加" | "进行中" | "已完成")
+- \`gameState.角色.公会登记.讲习会.时间\`: String
+- \`gameState.角色.公会登记.讲习会.备注\`: String
+
 **技能与魔法**
+- \`gameState.角色.魔法栏位.上限\`: Number
+- \`gameState.角色.魔法栏位.已使用\`: Number
+- \`gameState.角色.魔法栏位.扩展来源\`: String[]
 - \`gameState.角色.发展能力\`: Array<{ "名称", "等级", "类型", "描述", "效果", "解锁条件", "备注" }>
 - \`gameState.角色.技能\`: Array<{ "id", "名称", "类别", "描述", "效果", "触发", "持续", "冷却", "消耗", "范围", "命中", "适用", "等级", "关联发展能力", "限制", "标签", "稀有"(Bool), "备注" }>
 - \`gameState.角色.魔法\`: Array<{ "id", "名称", "咏唱", "类别", "属性", "描述", "效果", "范围", "射程", "冷却", "消耗", "施放条件", "标签", "稀有"(Bool), "备注" }>
@@ -195,6 +207,9 @@
 - \`gameState.世界.街头传闻\`: Array<{ "主题": String, "传播度": Number }>
 - \`gameState.世界.诸神神会\`: { "下次神会开启时间": String, "神会主题": String, "讨论内容": Array<{ "角色": String, "对话": String }>, "最终结果": String }
 - \`gameState.世界.NPC后台跟踪\`: Array<{ "NPC": String, "当前行动": String, "位置?": String, "进度?": String, "预计完成?": String }>
+- \`gameState.世界.派阀格局\`: { "S级": String[], "A级": String[], "B级至I级": String[], "备注": String }
+- \`gameState.世界.战争游戏\`: { "状态": String, "参战眷族": String[], "形式": String, "赌注": String, "举办时间": String, "结束时间": String, "结果": String, "备注": String }
+- \`gameState.世界.异端儿情报\`: { "记录": Array<{ "名称": String, "种类": String, "立场": String, "情报等级": String, "状态": String, "备注": String }>, "通缉状态": String }
 - \`gameState.世界.下次更新\`: String（每回合需确认是否已经抵达下次更新时间，若抵达则更具体的日期如：第一日 18:00）
 
 ## 10. 地图系统 (gameState.地图)

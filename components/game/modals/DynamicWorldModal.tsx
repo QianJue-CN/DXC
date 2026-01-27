@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import { X, Globe, Crown, Mic2, AlertTriangle, Scroll, Clock, Radar, ListChecks } from 'lucide-react';
+import { X, Globe, Crown, Mic2, AlertTriangle, Scroll, Clock, Radar, ListChecks, Swords, Skull, Flag } from 'lucide-react';
 import { WorldState } from '../../../types';
 
 interface DynamicWorldModalProps {
@@ -13,7 +13,7 @@ interface DynamicWorldModalProps {
   onSilentWorldUpdate?: () => void;
 }
 
-type WorldTab = 'GUILD' | 'DENATUS' | 'RUMORS' | 'TRACKING';
+type WorldTab = 'GUILD' | 'DENATUS' | 'RUMORS' | 'TRACKING' | 'FACTIONS' | 'WAR_GAME' | 'XENOS';
 
 export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({ 
     isOpen, 
@@ -48,6 +48,9 @@ export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({
           最终结果: "待议"
       },
       NPC后台跟踪: [],
+      派阀格局: { S级: [], A级: [], B级至I级: [], 备注: "未设定" },
+      战争游戏: { 状态: "未开始", 参战眷族: [], 形式: "", 赌注: "", 举办时间: "", 结束时间: "", 结果: "", 备注: "" },
+      异端儿情报: { 记录: [], 通缉状态: "未公开" },
       下次更新: "未知"
   };
 
@@ -98,6 +101,24 @@ export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({
                     onClick={() => setActiveTab('RUMORS')} 
                 />
                 <TabButton 
+                    label="派阀格局" 
+                    icon={<Flag size={18}/>} 
+                    active={activeTab === 'FACTIONS'} 
+                    onClick={() => setActiveTab('FACTIONS')} 
+                />
+                <TabButton 
+                    label="战争游戏" 
+                    icon={<Swords size={18}/>} 
+                    active={activeTab === 'WAR_GAME'} 
+                    onClick={() => setActiveTab('WAR_GAME')} 
+                />
+                <TabButton 
+                    label="异端儿情报" 
+                    icon={<Skull size={18}/>} 
+                    active={activeTab === 'XENOS'} 
+                    onClick={() => setActiveTab('XENOS')} 
+                />
+                <TabButton 
                     label="后台跟踪" 
                     icon={<Radar size={18}/>} 
                     active={activeTab === 'TRACKING'} 
@@ -131,6 +152,9 @@ export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({
                 {activeTab === 'GUILD' && <GuildPanel world={safeWorldState} />}
                 {activeTab === 'DENATUS' && <DenatusPanel world={safeWorldState} />}
                 {activeTab === 'RUMORS' && <RumorsPanel world={safeWorldState} />}
+                {activeTab === 'FACTIONS' && <FactionsPanel world={safeWorldState} />}
+                {activeTab === 'WAR_GAME' && <WarGamePanel world={safeWorldState} />}
+                {activeTab === 'XENOS' && <XenosPanel world={safeWorldState} />}
                 {activeTab === 'TRACKING' && <TrackingPanel world={safeWorldState} />}
             </div>
         </div>
@@ -291,6 +315,106 @@ const RumorsPanel = ({ world }: { world: WorldState }) => (
         </div>
     </div>
 );
+
+const FactionsPanel = ({ world }: { world: WorldState }) => {
+    const tiers = world.派阀格局 || { S级: [], A级: [], B级至I级: [], 备注: "" };
+    const renderList = (items: string[]) => items.length > 0 ? items.join('、') : '暂无记录';
+    return (
+        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="border-b border-amber-900 pb-2 mb-6">
+                <h3 className="text-amber-400 font-display text-2xl uppercase tracking-widest">派阀格局 (Factions)</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+                <div className="bg-[#020617] p-4 border border-amber-900/40">
+                    <div className="text-amber-300 font-bold mb-2">S级派阀</div>
+                    <div className="text-zinc-300 text-sm">{renderList(tiers.S级 || [])}</div>
+                </div>
+                <div className="bg-[#020617] p-4 border border-amber-900/40">
+                    <div className="text-amber-200 font-bold mb-2">A级派阀</div>
+                    <div className="text-zinc-300 text-sm">{renderList(tiers.A级 || [])}</div>
+                </div>
+                <div className="bg-[#020617] p-4 border border-amber-900/40">
+                    <div className="text-amber-100 font-bold mb-2">B级至I级派阀</div>
+                    <div className="text-zinc-300 text-sm">{renderList(tiers.B级至I级 || [])}</div>
+                </div>
+                {tiers.备注 && (
+                    <div className="text-[10px] text-zinc-500 italic px-2">{tiers.备注}</div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+const WarGamePanel = ({ world }: { world: WorldState }) => {
+    const war = world.战争游戏 || { 状态: "未开始", 参战眷族: [], 形式: "", 赌注: "", 举办时间: "", 结束时间: "", 结果: "", 备注: "" };
+    return (
+        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="border-b border-red-900 pb-2 mb-6">
+                <h3 className="text-red-400 font-display text-2xl uppercase tracking-widest">战争游戏 (War Game)</h3>
+            </div>
+            <div className="bg-[#020617] p-6 border border-red-900/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-zinc-300">
+                    <div className="flex justify-between border-b border-red-900/30 pb-2">
+                        <span className="text-zinc-500">状态</span>
+                        <span className="text-red-300 font-mono">{war.状态 || "未开始"}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-red-900/30 pb-2">
+                        <span className="text-zinc-500">形式</span>
+                        <span>{war.形式 || "待定"}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-red-900/30 pb-2">
+                        <span className="text-zinc-500">举办时间</span>
+                        <span>{war.举办时间 || "未知"}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-red-900/30 pb-2">
+                        <span className="text-zinc-500">结束时间</span>
+                        <span>{war.结束时间 || "未知"}</span>
+                    </div>
+                    <div className="md:col-span-2 flex justify-between border-b border-red-900/30 pb-2">
+                        <span className="text-zinc-500">赌注</span>
+                        <span className="text-red-200">{war.赌注 || "未公开"}</span>
+                    </div>
+                    <div className="md:col-span-2 flex justify-between">
+                        <span className="text-zinc-500">结果</span>
+                        <span className="text-emerald-300">{war.结果 || "待定"}</span>
+                    </div>
+                </div>
+                <div className="mt-4 text-xs text-zinc-400">
+                    参战眷族：{(war.参战眷族 || []).length > 0 ? war.参战眷族.join('、') : "暂无记录"}
+                </div>
+                {war.备注 && <div className="mt-2 text-[10px] text-zinc-500 italic">{war.备注}</div>}
+            </div>
+        </div>
+    );
+};
+
+const XenosPanel = ({ world }: { world: WorldState }) => {
+    const xenos = world.异端儿情报 || { 记录: [], 通缉状态: "未公开" };
+    return (
+        <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+            <div className="border-b border-cyan-900 pb-2 mb-6">
+                <h3 className="text-cyan-400 font-display text-2xl uppercase tracking-widest">异端儿情报 (Xenos)</h3>
+            </div>
+            <div className="text-xs text-zinc-400 mb-2">通缉状态：<span className="text-cyan-300">{xenos.通缉状态 || "未公开"}</span></div>
+            <div className="grid grid-cols-1 gap-4">
+                {(xenos.记录 || []).length > 0 ? (
+                    xenos.记录.map((rec, i) => (
+                        <div key={i} className="bg-[#020617] p-4 border border-cyan-900/40">
+                            <div className="text-cyan-300 font-bold">{rec.名称}</div>
+                            <div className="text-zinc-400 text-xs">种类: {rec.种类} | 立场: {rec.立场} | 等级: {rec.情报等级}</div>
+                            <div className="text-zinc-400 text-xs">状态: {rec.状态}</div>
+                            {rec.备注 && <div className="text-[10px] text-zinc-500 mt-1">{rec.备注}</div>}
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-10 text-zinc-600 border border-dashed border-zinc-800">
+                        <p>暂无异端儿记录。</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 const TrackingPanel = ({ world }: { world: WorldState }) => (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">

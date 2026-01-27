@@ -42,6 +42,7 @@ export const P_COT_LOGIC = `
     - gameState.角色.生存状态.饱腹度 / 水分
     - gameState.角色.身体部位（普通及以上难度）
     - gameState.角色.状态 / 诅咒 / 疲劳度
+    - gameState.角色.恩惠状态 / 公会登记 / 魔法栏位
   - 库存审计：
     - 个人库存：
       - gameState.角色.装备（主手/副手/护甲/饰品）
@@ -56,7 +57,7 @@ export const P_COT_LOGIC = `
       - 若容器变量为空或未提供，则视为空容器。
   - 情报扫描：
     - gameState.任务.日志 / gameState.剧情 / gameState.契约
-    - gameState.世界（头条新闻/街头传闻/诸神神会/NPC后台跟踪）
+    - gameState.世界（头条新闻/街头传闻/诸神神会/NPC后台跟踪/派阀格局/战争游戏/异端儿情报）
     - gameState.短信 / gameState.动态
     - gameState.地图（当前位置与已知节点）
 - 指令解析：

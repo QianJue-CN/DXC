@@ -267,6 +267,24 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ stats, className = '', isH
               <span className="text-white font-mono">{stats.伟业} / {stats.升级所需伟业}</span>
           </div>
 
+          {/* Guild Registration & Magic Slots */}
+          <div className="bg-black border border-zinc-800 p-2 text-[10px] space-y-1">
+              <div className="flex justify-between">
+                  <span className="text-zinc-500 uppercase">恩惠状态</span>
+                  <span className="text-emerald-300">{stats.恩惠状态 || '未知'}</span>
+              </div>
+              <div className="flex justify-between">
+                  <span className="text-zinc-500 uppercase">公会登记</span>
+                  <span className="text-blue-300">{stats.公会登记?.状态 || '未知'}</span>
+              </div>
+              <div className="flex justify-between">
+                  <span className="text-zinc-500 uppercase">魔法栏位</span>
+                  <span className="text-purple-300 font-mono">
+                      {(stats.魔法栏位?.已使用 ?? 0)}/{stats.魔法栏位?.上限 ?? 0}
+                  </span>
+              </div>
+          </div>
+
           {/* Status (Falna) - Bilingual Restore */}
           <div className="bg-zinc-900 border border-zinc-700 p-1 relative mt-2">
               <div className="absolute -top-3 left-2 bg-black px-2 text-xs font-bold text-zinc-500 uppercase tracking-widest border border-zinc-800">

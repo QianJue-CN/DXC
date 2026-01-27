@@ -3,7 +3,7 @@ import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, Memo
 import { GoogleGenAI } from "@google/genai";
 import { 
     P_SYS_FORMAT, P_SYS_CORE, P_SYS_STATS, P_SYS_LEVELING, P_SYS_COMBAT,
-    P_WORLD_DUNGEON, P_WORLD_PHONE, P_WORLD_ECO, P_WORLD_IF_BELL_NO_H, P_WORLD_IF_NO_BELL, P_WORLD_IF_DAY3, P_DYN_NPC, P_NPC_MEMORY, P_WORLD_NEWS, P_WORLD_DENATUS, P_WORLD_RUMORS, P_WORLD_EVENTS, P_DYN_MAP, P_MAP_DISCOVERY,
+    P_WORLD_FOUNDATION, P_WORLD_DUNGEON, P_WORLD_PHONE, P_WORLD_ECO, P_WORLD_GUILD_REG, P_WORLD_FACTIONS, P_WORLD_EQUIPMENT, P_WORLD_IF_BELL_NO_H, P_WORLD_IF_NO_BELL, P_WORLD_IF_DAY3, P_DYN_NPC, P_NPC_MEMORY, P_WORLD_NEWS, P_WORLD_DENATUS, P_WORLD_RUMORS, P_WORLD_EVENTS, P_DYN_MAP, P_MAP_DISCOVERY,
     P_COT_LOGIC, P_START_REQ, P_MEM_S2M, P_MEM_M2L, P_DATA_STRUCT,
     P_WRITING_REQ, P_WORLD_VALUES, P_LOOT_SYSTEM,
     P_PHYSIOLOGY_EASY, P_PHYSIOLOGY_NORMAL, P_PHYSIOLOGY_HARD, P_PHYSIOLOGY_HELL,
@@ -23,18 +23,22 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     { id: 'sys_writing', name: '4. 写作要求', group: '系统设定', usage: 'CORE', isActive: true, content: P_WRITING_REQ, order: 4 },
     
     // 【世界观设定】
+    { id: 'world_foundation', name: '0. 神时代与眷族契约', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_FOUNDATION, order: 18 },
     { id: 'world_dungeon_law', name: '1. 地下城绝对法则', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_DUNGEON, order: 20 },
+    { id: 'world_guild_reg', name: '2. 公会与登记流程', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_GUILD_REG, order: 21 },
     { id: 'world_phone', name: '3. 魔石通讯终端', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_PHONE, order: 22 },
     { id: 'world_eco_social', name: '4. 经济与社会', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_ECO, order: 23 },
-    { id: 'world_values', name: '5. 世界数值定义', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_VALUES, order: 24 },
-    { id: 'world_if_no_h', name: '6. IF线-贝尔未加入赫斯缇雅', group: '世界观设定', usage: 'CORE', isActive: false, content: P_WORLD_IF_BELL_NO_H, order: 24.2 },
-    { id: 'world_if_no_bell', name: '7. IF线-本世界没有贝尔', group: '世界观设定', usage: 'CORE', isActive: false, content: P_WORLD_IF_NO_BELL, order: 24.3 },
-    { id: 'world_if_day3', name: '8. IF线-贝尔第三日登场', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_IF_DAY3, order: 24.4 },
-        { id: 'sys_stats', name: '6. 能力值与精神力', group: '世界观设定', usage: 'CORE', isActive: true, content: P_SYS_STATS, order: 25 },
-    { id: 'sys_leveling', name: '7. 升级仪式', group: '世界观设定', usage: 'CORE', isActive: true, content: P_SYS_LEVELING, order: 26 },
-    { id: 'sys_combat_law', name: '8. 战斗法则与死亡', group: '世界观设定', usage: 'CORE', isActive: true, content: P_SYS_COMBAT, order: 27 },
-    { id: 'sys_loot', name: '9. 战利品管理', group: '世界观设定', usage: 'CORE', isActive: true, content: P_LOOT_SYSTEM, order: 28 },
-    { id: 'sys_familia_join', name: '10. 眷族加入引导', group: '世界观设定', usage: 'CORE', isActive: true, content: P_FAMILIA_JOIN, order: 29 }, 
+    { id: 'world_factions', name: '5. 派阀与战争游戏', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_FACTIONS, order: 23.5 },
+    { id: 'world_equipment', name: '6. 装备与道具', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_EQUIPMENT, order: 23.8 },
+    { id: 'world_values', name: '7. 世界数值定义', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_VALUES, order: 24 },
+    { id: 'world_if_no_h', name: '8. IF线-贝尔未加入赫斯缇雅', group: '世界观设定', usage: 'CORE', isActive: false, content: P_WORLD_IF_BELL_NO_H, order: 24.2 },
+    { id: 'world_if_no_bell', name: '9. IF线-本世界没有贝尔', group: '世界观设定', usage: 'CORE', isActive: false, content: P_WORLD_IF_NO_BELL, order: 24.3 },
+    { id: 'world_if_day3', name: '10. IF线-贝尔第三日登场', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_IF_DAY3, order: 24.4 },
+    { id: 'sys_stats', name: '11. 能力值与精神力', group: '世界观设定', usage: 'CORE', isActive: true, content: P_SYS_STATS, order: 25 },
+    { id: 'sys_leveling', name: '12. 升级仪式', group: '世界观设定', usage: 'CORE', isActive: true, content: P_SYS_LEVELING, order: 26 },
+    { id: 'sys_combat_law', name: '13. 战斗法则与死亡', group: '世界观设定', usage: 'CORE', isActive: true, content: P_SYS_COMBAT, order: 27 },
+    { id: 'sys_loot', name: '14. 战利品管理', group: '世界观设定', usage: 'CORE', isActive: true, content: P_LOOT_SYSTEM, order: 28 },
+    { id: 'sys_familia_join', name: '15. 眷族加入引导', group: '世界观设定', usage: 'CORE', isActive: true, content: P_FAMILIA_JOIN, order: 29 }, 
     
     // 【世界动态】
     { id: 'world_news', name: '1. 公会新闻生成', group: '世界动态', usage: 'CORE', isActive: true, content: P_WORLD_NEWS, order: 30 },
@@ -436,6 +440,9 @@ export const constructWorldContext = (world: any, params: any): string => {
            `街头传闻: ${JSON.stringify(world.街头传闻 || [])}\n` +
            `诸神神会: ${JSON.stringify(world.诸神神会 || {}, null, 0)}\n` +
            `NPC后台跟踪: ${JSON.stringify(world.NPC后台跟踪 || [])}\n` +
+           `派阀格局: ${JSON.stringify(world.派阀格局 || {}, null, 0)}\n` +
+           `战争游戏: ${JSON.stringify(world.战争游戏 || {}, null, 0)}\n` +
+           `异端儿情报: ${JSON.stringify(world.异端儿情报 || {}, null, 0)}\n` +
            `下次更新: ${world.下次更新 || "待定"}`;
 };
 
