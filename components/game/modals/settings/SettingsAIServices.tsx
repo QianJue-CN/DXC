@@ -11,7 +11,7 @@ interface SettingsAIServicesProps {
 
 export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings, onUpdate, onSave }) => {
     const [localConfig, setLocalConfig] = useState<GlobalAISettings>(settings);
-    const [activeTab, setActiveTab] = useState<'SOCIAL' | 'WORLD' | 'NPC_SYNC' | 'NPC_BRAIN'>('SOCIAL');
+    const [activeTab, setActiveTab] = useState<'SOCIAL' | 'WORLD' | 'PHONE' | 'NPC_SYNC' | 'NPC_BRAIN'>('SOCIAL');
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     useEffect(() => {
@@ -106,7 +106,7 @@ export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings
                 ) : (
                     <div>
                         <div className="flex border-b border-zinc-200 mb-4 overflow-x-auto">
-                            {(['SOCIAL', 'WORLD', 'NPC_SYNC', 'NPC_BRAIN'] as const).map(tab => (
+                            {(['SOCIAL', 'WORLD', 'PHONE', 'NPC_SYNC', 'NPC_BRAIN'] as const).map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -122,6 +122,9 @@ export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings
                         )}
                         {activeTab === 'WORLD' && (
                             <AIConfigForm config={localConfig.services.world} onChange={(c) => handleConfigChange(c, 'world')} />
+                        )}
+                        {activeTab === 'PHONE' && (
+                            <AIConfigForm config={localConfig.services.phone || localConfig.unified} onChange={(c) => handleConfigChange(c, 'phone')} />
                         )}
                         {activeTab === 'NPC_SYNC' && (
                             <AIConfigForm config={localConfig.services.npcSync} onChange={(c) => handleConfigChange(c, 'npcSync')} />

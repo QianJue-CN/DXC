@@ -1,7 +1,7 @@
 ﻿
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, MessageCircle, Users, Send, BookUser, Camera, ChevronRight, Heart, MessageSquare, ArrowLeft, Plus, Check, Image as ImageIcon, RotateCcw, Lock, Battery, Signal, Edit2, Trash2, Globe } from 'lucide-react';
-import { PhoneState, PhoneThread, PhoneMessage, PhonePost, Confidant } from '../../../types';
+import { X, MessageCircle, Users, Send, BookUser, Camera, ChevronRight, Heart, MessageSquare, ArrowLeft, Plus, Check, Image as ImageIcon, Clock, Lock, Battery, Signal, Edit2, Trash2, Globe } from 'lucide-react';
+import { PhoneState, PhoneThread, PhoneMessage, PhonePost, Confidant, NpcBackgroundTracking } from '../../../types';
 import { getAvatarColor } from '../../../utils/uiUtils';
 
 interface SocialPhoneModalProps {
@@ -9,6 +9,7 @@ interface SocialPhoneModalProps {
   onClose: () => void;
   phoneState?: PhoneState;
   contacts: Confidant[];
+  npcTracking?: NpcBackgroundTracking[];
   playerName: string;
   hasPhone?: boolean;
   initialTab?: 'CHAT' | 'CONTACTS' | 'MOMENTS' | 'FORUM';
@@ -18,7 +19,8 @@ interface SocialPhoneModalProps {
   onCreateThread?: (payload: { type: 'private' | 'group' | 'public'; title: string; members: string[] }) => void;
   onCreateMoment?: (content: string, imageDesc?: string) => void;
   onCreatePublicPost?: (content: string, imageDesc?: string, topic?: string) => void;
-  onReroll?: () => void;
+  onReadThread?: (threadId: string) => void;
+  onWaitReply?: (thread: PhoneThread) => void;
 }
 
 type PhoneTab = 'CHAT' | 'CONTACTS' | 'MOMENTS' | 'FORUM';
@@ -29,7 +31,8 @@ const DEFAULT_PHONE: PhoneState = {
   联系人: { 好友: [], 黑名单: [], 最近: [] },
   对话: { 私聊: [], 群聊: [], 公共频道: [] },
   朋友圈: { 仅好友可见: true, 帖子: [] },
-  公共帖子: { 板块: [], 帖子: [] }
+  公共帖子: { 板块: [], 帖子: [] },
+  待发送: []
 };
 
 export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
@@ -37,6 +40,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
   onClose,
   phoneState,
   contacts = [],
+  npcTracking = [],
   playerName,
   hasPhone = true,
   initialTab = 'CHAT',
@@ -46,7 +50,8 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
   onCreateThread,
   onCreateMoment,
   onCreatePublicPost,
-  onReroll
+  onReadThread,
+  onWaitReply
 }) => {
   const phone = phoneState || DEFAULT_PHONE;
   const [activeTab, setActiveTab] = useState<PhoneTab>(initialTab);
@@ -65,36 +70,26 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
   const [forumImage, setForumImage] = useState('');
   const [forumBoard, setForumBoard] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [replyPing, setReplyPing] = useState(false);
+  const lastActiveMsgId = useRef<string | null>(null);
+  const buildTrackingSummary = (entry?: NpcBackgroundTracking | null) => {
+    if (!entry) return '暂无跟踪';
+    const parts = [entry.当前行动];
+    if (entry.进度) parts.push(`进度:${entry.进度}`);
+    if (entry.预计完成) parts.push(`预计:${entry.预计完成}`);
+    if (entry.位置) parts.push(`地点:${entry.位置}`);
+    return parts.filter(Boolean).join(' · ');
+  };
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-      setChatType('private');
-      setActiveThreadId(null);
-      setViewingContact(null);
-      setIsCreatingGroup(false);
-      setIsStartingPrivate(false);
-      setEditingMessageId(null);
-    }
-  }, [isOpen, initialTab]);
-
-  useEffect(() => {
-    if (activeThreadId && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [activeThreadId, phoneState]);
-
-  const phoneLocked = !hasPhone;
-  const batteryValue = typeof phone.设备?.电量 === 'number' ? Math.max(0, Math.min(100, phone.设备.电量)) : null;
-  const signalValue = typeof phone.设备?.当前信号 === 'number' ? Math.max(0, Math.min(4, phone.设备.当前信号)) : null;
-  const batteryColor = batteryValue === null ? 'text-zinc-300' : batteryValue <= 10 ? 'text-red-300' : batteryValue <= 30 ? 'text-yellow-300' : 'text-emerald-300';
-  const signalColor = signalValue === null ? 'text-zinc-300' : signalValue <= 1 ? 'text-red-300' : signalValue <= 2 ? 'text-yellow-300' : 'text-emerald-300';
-
-  const validContacts = contacts.filter(c => c.已交换联系方式);
-  const friends = Array.isArray(phone.联系人?.好友) ? phone.联系人.好友 : [];
-  const friendSet = new Set(friends);
+  const totalUnread = useMemo(() => {
+    const allThreads = [
+      ...(phone.对话?.私聊 || []),
+      ...(phone.对话?.群聊 || []),
+      ...(phone.对话?.公共频道 || [])
+    ];
+    return allThreads.reduce((sum, t) => sum + (t.未读 || 0), 0);
+  }, [phoneState]);
 
   const getThreadList = (type: ChatType) => {
     if (type === 'private') return phone.对话?.私聊 || [];
@@ -118,6 +113,49 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
     if (!activeThreadId) return null;
     return getThreadList(chatType).find(t => t.id === activeThreadId) || null;
   }, [activeThreadId, chatType, phoneState]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      setChatType('private');
+      setActiveThreadId(null);
+      setViewingContact(null);
+      setIsCreatingGroup(false);
+      setIsStartingPrivate(false);
+      setEditingMessageId(null);
+    }
+  }, [isOpen, initialTab]);
+
+  useEffect(() => {
+    if (activeThreadId && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [activeThreadId, phoneState]);
+
+  useEffect(() => {
+    if (!activeThread) return;
+    const msgs = Array.isArray(activeThread.消息) ? activeThread.消息 : [];
+    const lastMsg = msgs[msgs.length - 1];
+    const isMe = lastMsg?.发送者 === playerName || lastMsg?.发送者 === '玩家' || lastMsg?.发送者 === 'Player';
+    if (lastMsg?.id && lastActiveMsgId.current && lastMsg.id !== lastActiveMsgId.current && !isMe) {
+      setReplyPing(true);
+      setTimeout(() => setReplyPing(false), 2200);
+    }
+    if (lastMsg?.id && lastMsg.id !== lastActiveMsgId.current) {
+      lastActiveMsgId.current = lastMsg.id;
+    }
+    onReadThread?.(activeThread.id);
+  }, [activeThread?.id, activeThread?.消息?.length, playerName, onReadThread]);
+
+  const phoneLocked = !hasPhone;
+  const batteryValue = typeof phone.设备?.电量 === 'number' ? Math.max(0, Math.min(100, phone.设备.电量)) : null;
+  const signalValue = typeof phone.设备?.当前信号 === 'number' ? Math.max(0, Math.min(4, phone.设备.当前信号)) : null;
+  const batteryColor = batteryValue === null ? 'text-zinc-300' : batteryValue <= 10 ? 'text-red-300' : batteryValue <= 30 ? 'text-yellow-300' : 'text-emerald-300';
+  const signalColor = signalValue === null ? 'text-zinc-300' : signalValue <= 1 ? 'text-red-300' : signalValue <= 2 ? 'text-yellow-300' : 'text-emerald-300';
+
+  const validContacts = contacts.filter(c => c.已交换联系方式);
+  const friends = Array.isArray(phone.联系人?.好友) ? phone.联系人.好友 : [];
+  const friendSet = new Set(friends);
 
   useEffect(() => {
     if (!pendingThreadTitle) return;
@@ -285,9 +323,9 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                 <span>{signalValue === null ? '??' : `${signalValue}/4`}</span>
               </div>
             </div>
-            {activeThread && onReroll && (
-              <button onClick={onReroll} title="Reroll Response">
-                <RotateCcw size={20} />
+            {activeThread && onWaitReply && (
+              <button onClick={() => onWaitReply(activeThread)} title="等待回复">
+                <Clock size={20} />
               </button>
             )}
             <button onClick={onClose} className="hover:text-black transition-colors"><X size={24} /></button>
@@ -374,6 +412,13 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
               </div>
             ) : activeThread ? (
               <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3 bg-zinc-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
+                {replyPing && (
+                  <div className="flex justify-center">
+                    <div className="px-3 py-1 text-[10px] bg-blue-600 text-white rounded-full shadow">
+                      收到新回复
+                    </div>
+                  </div>
+                )}
                 {messages.length === 0 ? (
                   <div className="text-center text-zinc-400 text-xs italic mt-10">暂无消息记录</div>
                 ) : (
@@ -398,32 +443,37 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                           </div>
                         ) : (
                           <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] p-2.5 text-xs shadow-sm relative ${isMe ? 'bg-black text-white rounded-l-xl rounded-br-sm' : 'bg-white text-black border border-zinc-300 rounded-r-xl rounded-bl-sm'}`}>
+                            <div className={`max-w-[86%] px-3 py-2.5 text-[13px] leading-relaxed shadow-sm relative ${isMe ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-br-sm' : 'bg-white text-zinc-900 border border-zinc-200 rounded-2xl rounded-bl-sm'}`}>
                               {!isMe && activeThread.类型 !== 'private' && (
-                                <div className="font-bold text-[9px] text-blue-600 mb-0.5 uppercase">{msg.发送者}</div>
+                                <div className="font-bold text-[9px] text-blue-600 mb-1 uppercase">{msg.发送者}</div>
                               )}
                               {msg.引用?.内容 && (
-                                <div className="text-[10px] border-l-2 border-blue-400 pl-2 mb-1 text-zinc-400">
+                                <div className="text-[10px] border-l-2 border-blue-400 pl-2 mb-1 text-zinc-500">
                                   {msg.引用.发送者 ? `${msg.引用.发送者}: ` : ''}{msg.引用.内容}
                                 </div>
                               )}
-                              <div>{msg.内容}</div>
+                              <div className="whitespace-pre-wrap break-words">{msg.内容}</div>
                               {msg.图片描述 && (
-                                <div className="mt-2 w-full h-20 bg-zinc-800/10 flex flex-col items-center justify-center text-zinc-500 border border-zinc-200">
+                                <div className="mt-2 w-full h-20 bg-zinc-800/10 flex flex-col items-center justify-center text-zinc-500 border border-zinc-200 rounded-lg">
                                   <ImageIcon size={18} className="mb-1 text-blue-400" />
                                   <span className="text-[10px] px-2 text-center">{msg.图片描述}</span>
                                 </div>
                               )}
-                              <div className={`mt-1 text-[9px] ${isMe ? 'text-zinc-400' : 'text-zinc-500'} font-mono text-right`}>{timeLabel}</div>
+                              <div className={`mt-1 text-[9px] ${isMe ? 'text-blue-100' : 'text-zinc-500'} font-mono text-right`}>
+                                {isMe && msg.状态 === 'failed' && <span className="text-red-200 mr-2">发送失败</span>}
+                                {isMe && msg.状态 === 'pending' && <span className="text-blue-100/80 mr-2">发送中</span>}
+                                {isMe && msg.状态 === 'read' && <span className="text-blue-100/70 mr-2">已读</span>}
+                                {timeLabel}
+                              </div>
                               {isMe && (onEditMessage || onDeleteMessage) && (
                                 <div className="mt-1 flex justify-end gap-2 text-[9px]">
                                   {onEditMessage && (
-                                    <button type="button" onClick={() => handleStartEdit(msg)} className="flex items-center gap-1 text-zinc-300 hover:text-emerald-400">
+                                    <button type="button" onClick={() => handleStartEdit(msg)} className="flex items-center gap-1 text-blue-100/80 hover:text-white">
                                       <Edit2 size={10} /> 编辑
                                     </button>
                                   )}
                                   {onDeleteMessage && (
-                                    <button type="button" onClick={() => handleDelete(msg)} className="flex items-center gap-1 text-zinc-300 hover:text-red-400">
+                                    <button type="button" onClick={() => handleDelete(msg)} className="flex items-center gap-1 text-blue-100/80 hover:text-white">
                                       <Trash2 size={10} /> 删除
                                     </button>
                                   )}
@@ -461,6 +511,12 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                   </button>
                 </div>
 
+                {totalUnread > 0 && (
+                  <div className="px-4 py-2 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-widest border-b border-blue-100">
+                    有 {totalUnread} 条未读消息
+                  </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto custom-scrollbar relative">
                   {chatType === 'private' && (
                     <div className="space-y-1">
@@ -477,7 +533,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                           lastMsg={getThreadPreview(thread)}
                           avatar={thread.标题}
                           unread={thread.未读}
-                          onClick={() => { setActiveThreadId(thread.id); setChatType('private'); }}
+                          onClick={() => { setActiveThreadId(thread.id); setChatType('private'); onReadThread?.(thread.id); }}
                         />
                       )) : <EmptyState icon={<MessageCircle size={40} />} text="无私聊消息" />}
                     </div>
@@ -498,7 +554,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                           lastMsg={getThreadPreview(thread)}
                           isGroup
                           unread={thread.未读}
-                          onClick={() => { setActiveThreadId(thread.id); setChatType('group'); }}
+                          onClick={() => { setActiveThreadId(thread.id); setChatType('group'); onReadThread?.(thread.id); }}
                         />
                       )) : <EmptyState icon={<Users size={40} />} text="暂无群组" />}
                     </div>
@@ -513,7 +569,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                           lastMsg={getThreadPreview(thread)}
                           isGroup
                           unread={thread.未读}
-                          onClick={() => { setActiveThreadId(thread.id); setChatType('public'); }}
+                          onClick={() => { setActiveThreadId(thread.id); setChatType('public'); onReadThread?.(thread.id); }}
                         />
                       )) : <EmptyState icon={<Globe size={40} />} text="暂无公共频道" />}
                     </div>
@@ -546,7 +602,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                       <InfoBlock label="TITLE" content={viewingContact.称号 || '无'} />
                       <InfoBlock label="ROLE" content={`${viewingContact.身份 || '未知'} / ${viewingContact.眷族 || '无眷族'}`} />
                     </div>
-                    <InfoBlock label="ACTION" content={viewingContact.当前行动 || '暂无行动'} />
+                    <InfoBlock label="TRACK" content={buildTrackingSummary(npcTracking.find(t => t.NPC === viewingContact.姓名))} />
                     <InfoBlock label="LOCATION" content={viewingContact.位置详情 || (viewingContact.坐标 ? `坐标 ${Math.round(viewingContact.坐标.x)}, ${Math.round(viewingContact.坐标.y)}` : '未知')} />
                   </div>
 
@@ -584,13 +640,13 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                   value={momentText}
                   onChange={(e) => setMomentText(e.target.value)}
                   placeholder="分享点什么..."
-                  className="w-full h-20 border border-zinc-200 p-2 text-xs resize-none outline-none focus:border-blue-500"
+                  className="w-full h-20 border border-zinc-200 p-2 text-xs resize-none outline-none focus:border-blue-500 text-black placeholder:text-zinc-400"
                 />
                 <input
                   value={momentImage}
                   onChange={(e) => setMomentImage(e.target.value)}
                   placeholder="图片描述 (可选)"
-                  className="w-full mt-2 border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500"
+                  className="w-full mt-2 border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500 text-black placeholder:text-zinc-400"
                 />
                 <div className="flex justify-end mt-2">
                   <button
@@ -618,7 +674,7 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                   <select
                     value={forumBoard}
                     onChange={(e) => setForumBoard(e.target.value)}
-                    className="w-full border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500 mb-2"
+                    className="w-full border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500 mb-2 text-black"
                   >
                     <option value="">选择板块</option>
                     {phone.公共帖子.板块.map(board => (
@@ -630,13 +686,13 @@ export const SocialPhoneModal: React.FC<SocialPhoneModalProps> = ({
                   value={forumText}
                   onChange={(e) => setForumText(e.target.value)}
                   placeholder="分享见闻 / 发布情报 / 交易信息..."
-                  className="w-full h-20 border border-zinc-200 p-2 text-xs resize-none outline-none focus:border-blue-500"
+                  className="w-full h-20 border border-zinc-200 p-2 text-xs resize-none outline-none focus:border-blue-500 text-black placeholder:text-zinc-400"
                 />
                 <input
                   value={forumImage}
                   onChange={(e) => setForumImage(e.target.value)}
                   placeholder="图片描述 (可选)"
-                  className="w-full mt-2 border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500"
+                  className="w-full mt-2 border border-zinc-200 p-2 text-xs outline-none focus:border-blue-500 text-black placeholder:text-zinc-400"
                 />
                 <div className="flex justify-end mt-2">
                   <button
@@ -708,24 +764,28 @@ const getThreadPreview = (thread: PhoneThread) => {
   return last?.内容 ? last.内容.slice(0, 20) : '新消息';
 };
 
-const ChatRow = ({ name, lastMsg, avatar, onClick, isGroup, unread }: any) => (
-  <div
-    onClick={onClick}
-    className="flex items-center gap-3 p-3 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 transition-colors group"
-  >
-    <div className={`w-10 h-10 flex items-center justify-center font-bold text-white shrink-0 text-xs rounded-full transition-all ${isGroup ? 'bg-zinc-800' : getAvatarColor(name)}`}>
-      {isGroup ? <Users size={16} /> : name[0]}
+const ChatRow = ({ name, lastMsg, avatar, onClick, isGroup, unread }: any) => {
+  const unreadCount = Math.max(0, unread || 0);
+  const unreadLabel = unreadCount > 99 ? '99+' : unreadCount.toString();
+  return (
+    <div
+      onClick={onClick}
+      className="flex items-center gap-3 p-3 hover:bg-zinc-50 cursor-pointer border-b border-zinc-100 transition-colors group"
+    >
+      <div className={`w-10 h-10 flex items-center justify-center font-bold text-white shrink-0 text-xs rounded-full transition-all ${isGroup ? 'bg-zinc-800' : getAvatarColor(name)}`}>
+        {isGroup ? <Users size={16} /> : name[0]}
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-bold text-black text-xs truncate uppercase font-display tracking-wide">{name}</h4>
+        <p className="text-[10px] text-zinc-500 truncate">{lastMsg}</p>
+      </div>
+      {unreadCount > 0 && (
+        <span className="text-[10px] bg-blue-600 text-white rounded-full px-2 py-0.5">{unreadLabel}</span>
+      )}
+      <ChevronRight size={14} className="text-zinc-300 group-hover:text-blue-600" />
     </div>
-    <div className="flex-1 min-w-0">
-      <h4 className="font-bold text-black text-xs truncate uppercase font-display tracking-wide">{name}</h4>
-      <p className="text-[10px] text-zinc-500 truncate">{lastMsg}</p>
-    </div>
-    {unread > 0 && (
-      <span className="text-[10px] bg-blue-600 text-white rounded-full px-2 py-0.5">{unread}</span>
-    )}
-    <ChevronRight size={14} className="text-zinc-300 group-hover:text-blue-600" />
-  </div>
-);
+  );
+};
 
 const ContactRow = ({ npc, onClick, isFriend }: any) => (
   <div

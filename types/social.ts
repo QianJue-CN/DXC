@@ -34,7 +34,6 @@ export interface Confidant {
   强制包含上下文?: boolean; // forceIncludeInContext
   
   // 动态数据
-  当前行动?: string; // currentAction
   坐标?: GeoPoint; 
   位置详情?: string; // locationDetail
   
@@ -86,9 +85,30 @@ export interface PhoneMessage {
   时间戳: string; // Display string "第X日 HH:MM"
   timestampValue?: number; // Sorting value
   类型?: 'text' | 'system' | 'image' | string;
-  状态?: 'sent' | 'received' | 'read' | string;
+  状态?: 'pending' | 'sent' | 'received' | 'read' | 'failed' | string;
   图片描述?: string;
+  表情包?: string;
+  媒体类型?: 'image' | 'sticker' | string;
+  送达时间?: string; // 计划送达的游戏时间（第X日 HH:MM）
+  延迟分钟?: number; // 便于调试/展示
   引用?: { id?: string; 内容?: string; 发送者?: string };
+}
+
+export interface PhonePendingMessage {
+  id: string;
+  threadId: string;
+  threadTitle?: string;
+  threadType: 'private' | 'group' | 'public';
+  deliverAt: string; // 游戏时间
+  payload: PhoneMessage;
+  status?: 'scheduled' | 'delivered' | 'canceled';
+  trigger?: {
+    locations?: string[];
+    confidants?: string[];
+    storyKeywords?: string[];
+    taskIds?: string[];
+    worldKeywords?: string[];
+  };
 }
 
 export interface PhoneThread {
@@ -100,6 +120,9 @@ export interface PhoneThread {
   未读?: number;
   置顶?: boolean;
   备注?: string;
+  摘要?: string;
+  摘要时间?: string;
+  摘要更新时间?: number;
 }
 
 export interface PhonePost {
@@ -141,4 +164,5 @@ export interface PhoneState {
     板块?: string[];
     帖子: PhonePost[];
   };
+  待发送?: PhonePendingMessage[];
 }

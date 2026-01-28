@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
             world: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
             npcSync: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
             npcBrain: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
+            phone: { provider: 'gemini', baseUrl: '', apiKey: '', modelId: '', forceJsonOutput: false },
         }
     },
     memoryConfig: DEFAULT_MEMORY_CONFIG,
@@ -94,11 +95,21 @@ export const useAppSettings = () => {
                   contextConfig = { modules: mergedModules };
               }
 
+              const mergedAiConfig = {
+                  ...DEFAULT_SETTINGS.aiConfig,
+                  ...(parsed.aiConfig || {}),
+                  services: {
+                      ...DEFAULT_SETTINGS.aiConfig.services,
+                      ...(parsed.aiConfig?.services || {})
+                  }
+              };
+
               setSettings({ 
                   ...DEFAULT_SETTINGS, 
                   ...parsed,
                   promptModules: mergedPromptModules,
-                  contextConfig: contextConfig
+                  contextConfig: contextConfig,
+                  aiConfig: mergedAiConfig
               });
           } catch(e) {
               console.error("Failed to load settings", e);

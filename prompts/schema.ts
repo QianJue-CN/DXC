@@ -148,7 +148,6 @@ export const P_DATA_STRUCT = `<数据结构定义>
 - \`是否队友\`: Boolean
 - \`已交换联系方式\`: Boolean
 - \`特别关注\`: Boolean
-- \`当前行动\`: 格式如 (如 于[第八日8:00]开始"正在擦拭酒杯"预计[第八日8:05]结束)
 - \`位置详情\`: String
 - \`坐标\`: { "x": Number, "y": Number }
 - \`记忆\`: Array<{ "内容": String, "时间戳": String }>
@@ -240,6 +239,8 @@ export const P_DATA_STRUCT = `<数据结构定义>
 - \`gameState.眷族.设施状态\`: Object
 - \`gameState.眷族.仓库\`: Array<InventoryItem>
 </数据结构定义>`;
+
+
 
 
 

@@ -364,7 +364,8 @@ export const createNewGameState = (
         公共帖子: {
             板块: ['公告', '酒馆闲聊', '交易', '求助', '远征', '情报'],
             帖子: initialPublicPosts
-        }
+        },
+        待发送: []
     };
 
     return {

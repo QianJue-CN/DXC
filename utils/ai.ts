@@ -1,5 +1,5 @@
-
-import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, MemoryEntry, LogEntry, AIResponse, ContextModuleConfig, ContextModuleType, InventoryItem, Task, MemoryConfig, PhoneMessage, PhonePost, PhoneState, PhoneThread, MemorySystem, WorldMapData } from "../types";
+﻿
+import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, MemoryEntry, LogEntry, AIResponse, PhoneAIResponse, ContextModuleConfig, ContextModuleType, InventoryItem, Task, MemoryConfig, PhoneMessage, PhonePost, PhoneState, PhoneThread, MemorySystem, WorldMapData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 import { 
     P_SYS_FORMAT, P_SYS_CORE, P_SYS_STATS, P_SYS_LEVELING, P_SYS_COMBAT,
@@ -9,7 +9,8 @@ import {
     P_PHYSIOLOGY_EASY, P_PHYSIOLOGY_NORMAL, P_PHYSIOLOGY_HARD, P_PHYSIOLOGY_HELL,
     P_DIFFICULTY_EASY, P_DIFFICULTY_NORMAL, P_DIFFICULTY_HARD, P_DIFFICULTY_HELL,
     P_JUDGMENT_EASY, P_JUDGMENT_NORMAL, P_JUDGMENT_HARD, P_JUDGMENT_HELL,
-    P_ACTION_OPTIONS, P_FAMILIA_JOIN, P_STORY_GUIDE
+    P_ACTION_OPTIONS, P_FAMILIA_JOIN, P_STORY_GUIDE,
+    P_PHONE_SYSTEM, P_PHONE_COT
 } from "../prompts";
 import { Difficulty } from "../types/enums";
 
@@ -314,7 +315,6 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
                 ...coordInfo,
                 简介: c.简介, 外貌: c.外貌, 背景: c.背景,
                 位置详情: c.位置详情,
-                当前行动: c.当前行动,
                 最近记忆: isPresent ? focusMemories : formatMemories(specialAbsentMemoriesRaw)
             };
             focusChars.push(JSON.stringify(focusData));
@@ -323,7 +323,6 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
                 ...baseInfo,
                 ...coordInfo,
                 外貌: c.外貌,
-                当前行动: c.当前行动,
                 最近记忆: lastMemories
             };
             presentChars.push(JSON.stringify(presentData));
@@ -519,6 +518,10 @@ export const constructPhoneContext = (phoneState: PhoneState | undefined, params
             const trimmed = limitOverride > 0 ? messages.slice(-limitOverride) : messages;
             if (trimmed.length === 0) return;
             output += `- ${t.标题} (${t.类型})\n`;
+            if (t.摘要) {
+                const summaryStamp = t.摘要时间 ? ` 截至 ${t.摘要时间}` : '';
+                output += `  [摘要${summaryStamp}] ${t.摘要}\n`;
+            }
             trimmed.forEach(m => {
                 output += `  ${formatMessage(m)}\n`;
             });
@@ -557,7 +560,82 @@ export const constructPhoneContext = (phoneState: PhoneState | undefined, params
         }
     }
 
+    if (Array.isArray(phoneState.待发送) && phoneState.待发送.length > 0) {
+        const pendingBrief = phoneState.待发送.slice(0, 6).map(p => `${p.threadId} -> ${p.deliverAt}`).join(' | ');
+        output += `\n待发送队列: ${pendingBrief}${phoneState.待发送.length > 6 ? ' ...' : ''}`;
+    }
+
     return output.trim();
+};
+
+const constructPhoneSocialBrief = (confidants: Confidant[] = []): string => {
+    const list = confidants
+        .filter(c => c.已交换联系方式)
+        .map(c => ({
+            姓名: c.姓名,
+            关系: c.关系状态,
+            是否在场: !!c.是否在场,
+            位置: c.位置详情 || (c.坐标 ? `(${Math.round(c.坐标.x)},${Math.round(c.坐标.y)})` : undefined)
+        }));
+    return `[手机联系人摘要]\n${list.length > 0 ? JSON.stringify(list, null, 2) : '（暂无已交换联系方式的联系人）'}`;
+};
+
+const constructPhoneTrackingBrief = (gameState: GameState): string => {
+    const tracks = Array.isArray(gameState.世界?.NPC后台跟踪) ? gameState.世界.NPC后台跟踪 : [];
+    if (tracks.length === 0) return `[NPC后台跟踪]\n（暂无在跟踪的NPC行动）`;
+    const contactSet = new Set((gameState.社交 || []).filter(c => c.已交换联系方式).map(c => c.姓名));
+    const filtered = tracks.filter(t => !contactSet.size || contactSet.has(t.NPC));
+    const trimmed = (filtered.length > 0 ? filtered : tracks).slice(0, 8).map(t => ({
+        NPC: t.NPC,
+        当前行动: t.当前行动,
+        位置: t.位置,
+        进度: t.进度,
+        预计完成: t.预计完成
+    }));
+    return `[NPC后台跟踪]\n${JSON.stringify(trimmed, null, 2)}`;
+};
+
+const constructPhoneStoryBrief = (gameState: GameState): string => {
+    const story = gameState.剧情 || ({} as any);
+    const main = story.主线 || {};
+    const guide = story.引导 || {};
+    return `[剧情摘要]\n主线: ${main.当前阶段 || '未知'} / ${main.关键节点 || '未知'}\n引导目标: ${guide.当前目标 || '未知'}`;
+};
+
+const constructPhoneEnvironmentBrief = (gameState: GameState): string => {
+    return `[当前环境]\n时间: ${gameState.当前日期 || ''} ${gameState.游戏时间 || ''}\n地点: ${gameState.当前地点 || '未知'} / 楼层: ${gameState.当前楼层 ?? '未知'} / 天气: ${gameState.天气 || '未知'}\n战斗中: ${gameState.战斗?.是否战斗中 ? '是' : '否'}`;
+};
+
+const constructPhoneWorldBrief = (gameState: GameState): string => {
+    const world = gameState.世界 || ({} as any);
+    const news = Array.isArray(world.头条新闻) ? world.头条新闻.slice(0, 5) : [];
+    const rumors = Array.isArray(world.街头传闻) ? world.街头传闻.slice(0, 5) : [];
+    return `[世界情报摘要]\n头条: ${news.length > 0 ? news.join(' / ') : '无'}\n传闻: ${rumors.length > 0 ? rumors.join(' / ') : '无'}`;
+};
+
+export const assemblePhonePrompt = (
+    playerInput: string,
+    gameState: GameState,
+    settings: AppSettings
+): string => {
+    const phoneContext = constructPhoneContext(gameState.手机, { perThreadLimit: 10, includeMoments: true, includePublicPosts: true, forumLimit: 6, playerName: gameState.角色?.姓名 || 'Player' });
+    const socialBrief = constructPhoneSocialBrief(gameState.社交);
+    const trackingBrief = constructPhoneTrackingBrief(gameState);
+    const envBrief = constructPhoneEnvironmentBrief(gameState);
+    const storyBrief = constructPhoneStoryBrief(gameState);
+    const worldBrief = constructPhoneWorldBrief(gameState);
+    const cot = P_PHONE_COT || "";
+    return [
+        P_PHONE_SYSTEM,
+        cot,
+        envBrief,
+        storyBrief,
+        worldBrief,
+        trackingBrief,
+        socialBrief,
+        phoneContext,
+        `[用户输入]\n${playerInput}`
+    ].filter(Boolean).join('\n\n');
 };
 
 export const constructCombatContext = (combat: any, params: any): string => {
@@ -970,6 +1048,16 @@ export const assembleFullPrompt = (
     return fullContent.trim();
 };
 
+export const resolveServiceConfig = (settings: AppSettings, serviceKey: string): AIEndpointConfig => {
+    const aiConfig = settings.aiConfig;
+    if (!aiConfig) return { provider: 'gemini', baseUrl: 'https://generativelanguage.googleapis.com', apiKey: '', modelId: 'gemini-3-flash-preview' };
+    if (aiConfig.mode === 'separate') {
+        const service = (aiConfig.services as any)?.[serviceKey];
+        if (service && service.apiKey) return service as AIEndpointConfig;
+    }
+    return aiConfig.unified;
+};
+
 export interface AIRequestOptions {
     responseFormat?: 'json' | 'text';
     signal?: AbortSignal | null;
@@ -983,8 +1071,8 @@ export const dispatchAIRequest = async (
     options: AIRequestOptions = {}
 ): Promise<string> => {
     if (!config.apiKey) throw new Error(`Missing API Key for ${config.provider}`);
-    const responseFormat = options.responseFormat ?? 'json';
-    const forceJson = responseFormat === 'json';
+    const responseFormat = options.responseFormat ?? (config.forceJsonOutput ? 'json' : 'text');
+    const forceJson = responseFormat === 'json' || (config.forceJsonOutput && responseFormat !== 'text');
     const signal = options.signal ?? undefined;
 
     if (config.provider === 'gemini') {
@@ -1161,6 +1249,106 @@ export const generateDungeonMasterResponse = async (
             throw error;
         }
         console.error("AI Generation Error", error);
+        const rawBlock = rawText ? `\n\n【原始AI消息】\n${rawText}` : "";
+        return {
+            tavern_commands: [],
+            logs: [{ sender: "system", text: `系统错误: ${error.message}${rawBlock}` }],
+            shortTerm: "Error occurred.",
+            rawResponse: rawText || error.message
+        };
+    }
+};
+
+export const generatePhoneResponse = async (
+    input: string,
+    gameState: GameState,
+    settings: AppSettings,
+    signal?: AbortSignal
+): Promise<PhoneAIResponse> => {
+    const systemPrompt = assemblePhonePrompt(input, gameState, settings);
+    const userContent = `Phone Input: "${input}"\n请仅输出JSON。`;
+    const config = resolveServiceConfig(settings, 'phone');
+
+    let rawText = "";
+    try {
+        rawText = await dispatchAIRequest(
+            config,
+            systemPrompt,
+            userContent,
+            undefined,
+            { responseFormat: 'json', signal }
+        );
+        if (!rawText || !rawText.trim()) throw new Error("AI returned empty response.");
+        const extractedThinking = extractThinkingBlocks(rawText).thinking;
+        const parsedResult = parseAIResponseText(rawText);
+        if (parsedResult.response) {
+            const parsed = parsedResult.response as PhoneAIResponse;
+            const parsedThinking = mergeThinkingSegments(parsed as any);
+            return {
+                ...parsed,
+                rawResponse: rawText,
+                thinking: parsedThinking || extractedThinking,
+                ...(parsedResult.repairNote ? { repairNote: parsedResult.repairNote } : {})
+            };
+        }
+        return {
+            allowed: false,
+            blocked_reason: `JSON解析失败: ${parsedResult.error || "未知错误"}`,
+            rawResponse: rawText
+        };
+    } catch (error: any) {
+        if (error?.name === 'AbortError' || /abort/i.test(error?.message || '')) throw error;
+        const rawBlock = rawText ? `\n\n【原始AI消息】\n${rawText}` : "";
+        return {
+            allowed: false,
+            blocked_reason: `系统错误: ${error.message}${rawBlock}`,
+            rawResponse: rawText || error.message
+        };
+    }
+};
+
+export const generateWorldInfoResponse = async (
+    input: string,
+    gameState: GameState,
+    settings: AppSettings,
+    signal?: AbortSignal,
+    onStream?: (chunk: string) => void
+): Promise<AIResponse> => {
+    const systemPrompt = assembleFullPrompt(input, gameState, settings, []);
+    const userContent = `World Update Input: "${input}"\n请仅输出JSON。`;
+    const config = resolveServiceConfig(settings, 'world');
+
+    let rawText = "";
+    try {
+        rawText = await dispatchAIRequest(
+            config,
+            systemPrompt,
+            userContent,
+            onStream,
+            { responseFormat: 'json', signal }
+        );
+        if (!rawText || !rawText.trim()) throw new Error("AI returned empty response.");
+        const extractedThinking = extractThinkingBlocks(rawText).thinking;
+        const parsedResult = parseAIResponseText(rawText);
+        if (parsedResult.response) {
+            const parsed = parsedResult.response as AIResponse;
+            const parsedThinking = mergeThinkingSegments(parsed);
+            return {
+                ...parsed,
+                rawResponse: rawText,
+                thinking: parsedThinking || extractedThinking,
+                ...(parsedResult.repairNote ? { repairNote: parsedResult.repairNote } : {})
+            };
+        }
+        return {
+            tavern_commands: [],
+            logs: [{ sender: "system", text: `JSON解析失败: ${parsedResult.error || "未知错误"}` }],
+            shortTerm: "Error occurred.",
+            rawResponse: rawText,
+            thinking: extractedThinking
+        };
+    } catch (error: any) {
+        if (error?.name === 'AbortError' || /abort/i.test(error?.message || '')) throw error;
         const rawBlock = rawText ? `\n\n【原始AI消息】\n${rawText}` : "";
         return {
             tavern_commands: [],

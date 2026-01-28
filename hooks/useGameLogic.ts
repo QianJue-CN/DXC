@@ -1,8 +1,8 @@
-
+﻿
 import { useState, useEffect, useRef } from 'react';
-import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, PhoneMessage, PhoneThread, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, PhonePost } from '../types';
+import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, PhoneMessage, PhoneThread, PhonePendingMessage, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, PhonePost, PhoneAIResponse } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
-import { generateDungeonMasterResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText, mergeThinkingSegments } from '../utils/ai';
+import { generateDungeonMasterResponse, generatePhoneResponse, generateWorldInfoResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText, mergeThinkingSegments } from '../utils/ai';
 import { P_MEM_S2M, P_MEM_M2L } from '../prompts';
 import { Difficulty } from '../types/enums';
 
@@ -80,6 +80,7 @@ const DEFAULT_SETTINGS: AppSettings = {
             world: { ...DEFAULT_AI_CONFIG },
             npcSync: { ...DEFAULT_AI_CONFIG },
             npcBrain: { ...DEFAULT_AI_CONFIG },
+            phone: { ...DEFAULT_AI_CONFIG },
         }
     },
     writingConfig: {
@@ -133,6 +134,41 @@ const createStorageSnapshot = (state: GameState): GameState => {
     return copy;
 };
 
+const migrateNpcActionsToTracking = (state: GameState): GameState => {
+    if (!state || !Array.isArray(state.社交) || state.社交.length === 0) return state;
+    const world = state.世界 || ({} as any);
+    const existing = Array.isArray(world.NPC后台跟踪) ? [...world.NPC后台跟踪] : [];
+    const existingNames = new Set(existing.map((t: any) => t.NPC));
+    let changed = false;
+    const nextConfidants = state.社交.map((c: any) => {
+        if (c?.当前行动) {
+            if (!existingNames.has(c.姓名)) {
+                existing.push({
+                    NPC: c.姓名,
+                    当前行动: c.当前行动,
+                    位置: c.位置详情,
+                    预计完成: undefined,
+                    进度: undefined
+                });
+                existingNames.add(c.姓名);
+            }
+            const { 当前行动, ...rest } = c;
+            changed = true;
+            return rest;
+        }
+        return c;
+    });
+    if (!changed) return state;
+    return {
+        ...state,
+        社交: nextConfidants,
+        世界: {
+            ...world,
+            NPC后台跟踪: existing
+        }
+    };
+};
+
 export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) => {
     const [gameState, setGameState] = useState<GameState>(() => {
         if (initialState) {
@@ -140,9 +176,9 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             if (typeof initialState.记忆.lastLogIndex !== 'number') {
                 initialState.记忆.lastLogIndex = Math.max(0, initialState.日志.length - 10);
             }
-            return initialState;
+            return migrateNpcActionsToTracking(initialState);
         }
-        return createNewGameState("Adventurer", "Male", "Human");
+        return migrateNpcActionsToTracking(createNewGameState("Adventurer", "Male", "Human"));
     });
 
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -157,9 +193,11 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const [snapshotState, setSnapshotState] = useState<GameState | null>(null);
     const [memorySummaryState, setMemorySummaryState] = useState<MemorySummaryState | null>(null);
     const [pendingInteraction, setPendingInteraction] = useState<PendingInteraction | null>(null);
+    const [phoneNotifications, setPhoneNotifications] = useState<{ id: string; title: string; message: string }[]>([]);
     const silentUpdateInFlight = useRef(false);
     const lastWorldUpdateRef = useRef<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const phoneSummaryInFlight = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         const savedSettings = localStorage.getItem('danmachi_settings');
@@ -187,7 +225,15 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 const defaultIds = new Set(DEFAULT_PROMPT_MODULES.map(m => m.id));
                 const extraModules = savedModules.filter((m: any) => !defaultIds.has(m.id) && m.id !== 'world_if');
                 const mergedPromptModules = [...mergedDefaults, ...extraModules];
-                setSettings({ ...DEFAULT_SETTINGS, ...parsed, promptModules: mergedPromptModules });
+                const mergedAiConfig = {
+                    ...DEFAULT_SETTINGS.aiConfig,
+                    ...(parsed.aiConfig || {}),
+                    services: {
+                        ...DEFAULT_SETTINGS.aiConfig.services,
+                        ...(parsed.aiConfig?.services || {})
+                    }
+                };
+                setSettings({ ...DEFAULT_SETTINGS, ...parsed, promptModules: mergedPromptModules, aiConfig: mergedAiConfig });
             } catch(e) { console.warn("Settings corrupted"); }
         }
     }, []);
@@ -359,6 +405,416 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         return /abort/i.test(error.message || '');
     };
 
+    const parseGameTimeParts = (input?: string) => {
+        if (!input) return null;
+        const dayMatch = input.match(/第?(\d+)日/);
+        const timeMatch = input.match(/(\d{1,2}):(\d{2})/);
+        if (!dayMatch || !timeMatch) return null;
+        const day = parseInt(dayMatch[1], 10);
+        const hour = parseInt(timeMatch[1], 10);
+        const minute = parseInt(timeMatch[2], 10);
+        if ([day, hour, minute].some(n => Number.isNaN(n))) return null;
+        return { day, hour, minute };
+    };
+
+    const parseGameTime = (input?: string) => {
+        return gameTimeToMinutes(input);
+    };
+
+    const gameTimeToMinutes = (input?: string) => {
+        const parts = parseGameTimeParts(input);
+        if (!parts) return null;
+        return parts.day * 24 * 60 + parts.hour * 60 + parts.minute;
+    };
+
+    const formatGameTime = (day: number, hour: number, minute: number) => {
+        const h = Math.max(0, Math.min(23, hour));
+        const m = Math.max(0, Math.min(59, minute));
+        return `第${day}日 ${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
+
+    const advanceDateString = (dateStr: string, dayDelta: number) => {
+        if (!dateStr || !dayDelta) return dateStr;
+        const parts = dateStr.split('-').map(n => parseInt(n, 10));
+        if (parts.length !== 3 || parts.some(n => Number.isNaN(n))) return dateStr;
+        const [y, m, d] = parts;
+        const base = new Date(Date.UTC(y, m - 1, d));
+        if (Number.isNaN(base.getTime())) return dateStr;
+        base.setUTCDate(base.getUTCDate() + dayDelta);
+        const yy = base.getUTCFullYear().toString().padStart(4, '0');
+        const mm = (base.getUTCMonth() + 1).toString().padStart(2, '0');
+        const dd = base.getUTCDate().toString().padStart(2, '0');
+        return `${yy}-${mm}-${dd}`;
+    };
+
+    const advanceGameTimeByMinutes = (currentTime: string, minutes: number) => {
+        const parts = parseGameTimeParts(currentTime);
+        if (!parts || !Number.isFinite(minutes)) return { time: currentTime, dayDelta: 0 };
+        const total = parts.day * 24 * 60 + parts.hour * 60 + parts.minute + minutes;
+        const nextDay = Math.max(1, Math.floor(total / (24 * 60)));
+        const remainder = total - nextDay * 24 * 60;
+        const hour = Math.floor(remainder / 60);
+        const minute = remainder % 60;
+        const dayDelta = nextDay - parts.day;
+        return { time: formatGameTime(nextDay, hour, minute), dayDelta };
+    };
+
+    const ensurePhoneStateBase = (state: GameState) => {
+        if (!state.手机) return state;
+        const phone = state.手机;
+        if (!phone.待发送) phone.待发送 = [];
+        return state;
+    };
+
+    const isPhoneLocallyAvailable = (state: GameState) => {
+        const hasMagicPhone = (state.背包 || []).some(item => item.名称 === '魔石通讯终端');
+        if (!hasMagicPhone) return { ok: false, reason: '未携带魔石通讯终端' };
+        const phone = state.手机;
+        if (!phone) return { ok: false, reason: '终端未接入' };
+        const battery = typeof phone.设备?.电量 === 'number' ? phone.设备.电量 : 0;
+        const signal = typeof phone.设备?.当前信号 === 'number' ? phone.设备.当前信号 : 0;
+        if (battery <= 0) return { ok: false, reason: '终端电量不足' };
+        if (signal <= 0) return { ok: false, reason: '当前无信号' };
+        return { ok: true, reason: '' };
+    };
+
+    const isPhoneApiConfigured = (cfg: AppSettings) => {
+        const aiCfg = cfg?.aiConfig;
+        if (!aiCfg) return false;
+        if (aiCfg.mode === 'separate') {
+            return !!aiCfg.services?.phone?.apiKey;
+        }
+        return !!aiCfg.unified?.apiKey;
+    };
+
+    const upsertPhoneThread = (phone: any, threadType: 'private' | 'group' | 'public', title: string, members?: string[]) => {
+        const dialog = phone.对话 || { 私聊: [], 群聊: [], 公共频道: [] };
+        const list = threadType === 'private' ? dialog.私聊 : threadType === 'group' ? dialog.群聊 : dialog.公共频道;
+        let thread = list.find((t: PhoneThread) => t.标题 === title && t.类型 === threadType);
+        if (!thread) {
+            thread = {
+                id: generateNextId('Thr', list),
+                类型: threadType,
+                标题: title,
+                成员: members && members.length > 0 ? members : [title],
+                消息: [],
+                未读: 0
+            };
+            if (threadType === 'private') dialog.私聊 = [...dialog.私聊, thread];
+            else if (threadType === 'group') dialog.群聊 = [...dialog.群聊, thread];
+            else dialog.公共频道 = [...dialog.公共频道, thread];
+            phone.对话 = dialog;
+        }
+        return thread;
+    };
+
+    const normalizePhoneMessage = (msg: any, fallbackTime: string, sender?: string): PhoneMessage => {
+        const timestampValue = typeof msg?.timestampValue === 'number' ? msg.timestampValue : Date.now();
+        const timeLabel = msg?.时间戳 || fallbackTime || '未知';
+        return {
+            id: msg?.id || generateLegacyId(),
+            发送者: msg?.发送者 || sender || '未知',
+            内容: msg?.内容 || msg?.content || '',
+            时间戳: timeLabel,
+            timestampValue,
+            类型: msg?.类型 || msg?.type || (msg?.图片描述 ? 'image' : 'text'),
+            状态: msg?.状态 || msg?.status || 'received',
+            图片描述: msg?.图片描述 || msg?.image_desc,
+            表情包: msg?.表情包 || msg?.sticker,
+            媒体类型: msg?.媒体类型 || msg?.media_type,
+            送达时间: msg?.送达时间 || msg?.deliver_at_game_time,
+            延迟分钟: msg?.延迟分钟 || msg?.delay_minutes,
+            引用: msg?.引用
+        };
+    };
+
+    const enqueuePhoneMessages = (state: GameState, aiMessages: any[], playerName: string) => {
+        if (!aiMessages || aiMessages.length === 0) return state;
+        const nextState = ensurePhoneStateBase({ ...state, 手机: { ...state.手机 } });
+        const phone = nextState.手机;
+        if (!phone) return state;
+        const pending = Array.isArray(phone.待发送) ? [...phone.待发送] : [];
+        const nowTime = nextState.游戏时间;
+        aiMessages.forEach(raw => {
+            const threadTitle = raw.thread_title || raw.threadTitle || raw.title || raw.标题 || '未知';
+            const threadType = raw.thread_type || raw.threadType || raw.type || 'private';
+            const sender = raw.sender || raw.发送者 || threadTitle;
+            const delayMinutes = typeof raw.delay_minutes === 'number' ? raw.delay_minutes : 0;
+            const deliverAt = raw.deliver_at_game_time || raw.deliverAt || (delayMinutes > 0 ? advanceGameTimeByMinutes(nowTime, delayMinutes).time : nowTime);
+            const msg = normalizePhoneMessage({
+                ...raw,
+                发送者: sender,
+                时间戳: deliverAt,
+                延迟分钟: delayMinutes
+            }, deliverAt, sender);
+            const pendingItem: PhonePendingMessage = {
+                id: generateLegacyId(),
+                threadId: raw.thread_id || raw.threadId || '',
+                threadTitle,
+                threadType,
+                deliverAt,
+                payload: msg,
+                status: 'scheduled',
+                trigger: raw.trigger
+            };
+            pending.push(pendingItem);
+        });
+        phone.待发送 = pending;
+        nextState.手机 = phone;
+        return nextState;
+    };
+
+    const applyPhoneDeliveries = (state: GameState, nowTime: string) => {
+        const nextState = ensurePhoneStateBase({ ...state, 手机: { ...state.手机 } });
+        const phone = nextState.手机;
+        if (!phone || !Array.isArray(phone.待发送) || phone.待发送.length === 0) {
+            return { nextState, delivered: [] as PhoneMessage[] };
+        }
+        const nowValue = gameTimeToMinutes(nowTime) ?? 0;
+        const pendingNext: PhonePendingMessage[] = [];
+        const delivered: PhoneMessage[] = [];
+        phone.待发送.forEach(item => {
+            const deliverAtValue = gameTimeToMinutes(item.deliverAt);
+            const isDue = deliverAtValue === null ? true : deliverAtValue <= nowValue;
+            if (!isDue) {
+                pendingNext.push(item);
+                return;
+            }
+            const payload = { ...item.payload, 时间戳: item.payload.时间戳 || item.deliverAt, 状态: 'received' };
+            const threadTitle = item.threadTitle || payload.发送者 || item.threadId || '未知';
+            const thread = upsertPhoneThread(phone, item.threadType, threadTitle, []);
+            thread.消息 = [...(thread.消息 || []), payload];
+            thread.未读 = (thread.未读 || 0) + 1;
+            delivered.push(payload);
+        });
+        phone.待发送 = pendingNext;
+        nextState.手机 = phone;
+        return { nextState, delivered };
+    };
+
+    const pushPhoneNotification = (title: string, message: string) => {
+        const id = generateLegacyId();
+        setPhoneNotifications(prev => [...prev, { id, title, message }]);
+        setTimeout(() => {
+            setPhoneNotifications(prev => prev.filter(n => n.id !== id));
+        }, 4500);
+    };
+
+    const mergeThreadList = (base: PhoneThread[] = [], incoming: PhoneThread[] = []) => {
+        const map = new Map(base.map(t => [t.id, t]));
+        incoming.forEach(t => {
+            const existing = map.get(t.id);
+            if (!existing) {
+                map.set(t.id, t);
+                return;
+            }
+            map.set(t.id, { ...existing, ...t, 消息: t.消息 || existing.消息 });
+        });
+        return Array.from(map.values());
+    };
+
+    const mergePhoneState = (state: GameState, updates: any) => {
+        if (!updates) return state;
+        const nextState = ensurePhoneStateBase({ ...state, 手机: { ...state.手机 } });
+        const phone = nextState.手机;
+        if (!phone) return state;
+        if (updates.设备) phone.设备 = { ...phone.设备, ...updates.设备 };
+        if (updates.联系人) phone.联系人 = { ...phone.联系人, ...updates.联系人 };
+        if (updates.朋友圈) {
+            const nextMoments = Array.isArray(updates.朋友圈.帖子)
+                ? [...(phone.朋友圈?.帖子 || []), ...updates.朋友圈.帖子]
+                : (phone.朋友圈?.帖子 || []);
+            const deduped = nextMoments.filter((post, idx, arr) => post?.id ? arr.findIndex(p => p?.id === post.id) === idx : true);
+            phone.朋友圈 = { ...phone.朋友圈, ...updates.朋友圈, 帖子: deduped };
+        }
+        if (updates.公共帖子) {
+            const nextForum = Array.isArray(updates.公共帖子.帖子)
+                ? [...(phone.公共帖子?.帖子 || []), ...updates.公共帖子.帖子]
+                : (phone.公共帖子?.帖子 || []);
+            const deduped = nextForum.filter((post, idx, arr) => post?.id ? arr.findIndex(p => p?.id === post.id) === idx : true);
+            phone.公共帖子 = { ...phone.公共帖子, ...updates.公共帖子, 帖子: deduped };
+        }
+        if (updates.对话) {
+            const dialog = { ...phone.对话 };
+            if (updates.对话.私聊) dialog.私聊 = mergeThreadList(dialog.私聊 || [], updates.对话.私聊);
+            if (updates.对话.群聊) dialog.群聊 = mergeThreadList(dialog.群聊 || [], updates.对话.群聊);
+            if (updates.对话.公共频道) dialog.公共频道 = mergeThreadList(dialog.公共频道 || [], updates.对话.公共频道);
+            phone.对话 = dialog;
+        }
+        if (updates.待发送) phone.待发送 = updates.待发送;
+        nextState.手机 = phone;
+        return nextState;
+    };
+
+    const appendPhoneMemoryEntries = (state: GameState, entries: string[]) => {
+        if (!entries || entries.length === 0) return state;
+        const nextState = { ...state, 记忆: { ...state.记忆 } };
+        const list = nextState.记忆.shortTerm || [];
+        const nowTime = nextState.游戏时间 || '未知';
+        entries.forEach(text => {
+            list.push({ content: text, timestamp: nowTime, turnIndex: nextState.回合数 || 0 });
+        });
+        nextState.记忆.shortTerm = list;
+        return nextState;
+    };
+
+    const applyThreadSummaries = (state: GameState, summaries: any[]) => {
+        if (!summaries || summaries.length === 0 || !state.手机) return state;
+        const summaryMap = new Map(summaries.map(s => [s.threadId, s.summary]));
+        const updateThread = (t: PhoneThread) => {
+            if (!summaryMap.has(t.id)) return t;
+            const lastStamp = t.消息?.[t.消息.length - 1]?.timestampValue || Date.now();
+            return {
+                ...t,
+                摘要: summaryMap.get(t.id),
+                摘要时间: state.游戏时间 || '',
+                摘要更新时间: lastStamp
+            };
+        };
+        return {
+            ...state,
+            手机: {
+                ...state.手机,
+                对话: {
+                    私聊: (state.手机.对话?.私聊 || []).map(updateThread),
+                    群聊: (state.手机.对话?.群聊 || []).map(updateThread),
+                    公共频道: (state.手机.对话?.公共频道 || []).map(updateThread),
+                }
+            }
+        };
+    };
+
+    const applyPhoneResponseToState = (state: GameState, response: PhoneAIResponse, playerName: string) => {
+        let nextState = state;
+        if (response.phone_updates) nextState = mergePhoneState(nextState, response.phone_updates);
+        if (response.messages) nextState = enqueuePhoneMessages(nextState, response.messages, playerName);
+        if (response.tavern_commands && response.tavern_commands.length > 0) {
+            nextState = processTavernCommands(nextState, response.tavern_commands).newState;
+        }
+        if (response.short_memory && response.short_memory.length > 0) {
+            nextState = appendPhoneMemoryEntries(nextState, response.short_memory);
+        }
+        if (response.thread_summaries && response.thread_summaries.length > 0) {
+            nextState = applyThreadSummaries(nextState, response.thread_summaries);
+        }
+        if (typeof response.time_advance_minutes === 'number' && response.time_advance_minutes > 0) {
+            const adv = advanceGameTimeByMinutes(nextState.游戏时间, response.time_advance_minutes);
+            nextState = {
+                ...nextState,
+                游戏时间: adv.time,
+                当前日期: advanceDateString(nextState.当前日期, adv.dayDelta)
+            };
+        }
+        return nextState;
+    };
+
+    const adjustPhoneResponseForChat = (response: PhoneAIResponse) => {
+        if (!response || !Array.isArray(response.messages)) return response;
+        const adjusted = response.messages.map(msg => {
+            if (typeof msg?.delay_minutes === 'number'
+                && msg.delay_minutes > 10
+                && !msg.deliver_at_game_time
+                && !msg.trigger) {
+                return { ...msg, delay_minutes: 8 };
+            }
+            return msg;
+        });
+        if (typeof response.time_advance_minutes === 'number') {
+            return { ...response, messages: adjusted };
+        }
+        const shortDelays = adjusted
+            .map(m => (typeof m.delay_minutes === 'number' ? m.delay_minutes : 0))
+            .filter(v => v > 0 && v <= 10);
+        if (shortDelays.length === 0) {
+            return { ...response, messages: adjusted };
+        }
+        const autoAdvance = Math.min(10, Math.max(...shortDelays));
+        return { ...response, messages: adjusted, time_advance_minutes: autoAdvance };
+    };
+
+    const shouldSummarizeThread = (thread: PhoneThread) => {
+        const threshold = 18;
+        if (!thread.消息 || thread.消息.length < threshold) return false;
+        const lastStamp = thread.消息[thread.消息.length - 1]?.timestampValue || 0;
+        const summaryStamp = thread.摘要更新时间 || 0;
+        const newCount = thread.消息.filter(m => (m.timestampValue || 0) > summaryStamp).length;
+        return newCount >= 6;
+    };
+
+    const requestThreadSummary = async (thread: PhoneThread, baseState: GameState) => {
+        if (!thread || phoneSummaryInFlight.current.has(thread.id)) return;
+        if (!shouldSummarizeThread(thread)) return;
+        if (!isPhoneApiConfigured(settings)) return;
+        phoneSummaryInFlight.current.add(thread.id);
+        try {
+            const snippet = (thread.消息 || []).slice(-20).map(m => `[${m.发送者}] ${m.内容}`).join('\\n');
+            const input = `[THREAD_SUMMARY]\\n线程: ${thread.标题}\\n请忽略手机可用性限制，仅生成 thread_summaries。\\n消息:\\n${snippet}`;
+            const resp = await generatePhoneResponse(input, baseState, settings);
+            const summary = Array.isArray(resp.thread_summaries) && resp.thread_summaries.length > 0 ? resp.thread_summaries[0].summary : '';
+            if (!summary) return;
+            setGameState(prev => {
+                const phone = prev.手机;
+                if (!phone) return prev;
+                const updateThread = (t: PhoneThread) => {
+                    if (t.id !== thread.id) return t;
+                    const lastStamp = t.消息?.[t.消息.length - 1]?.timestampValue || Date.now();
+                    return { ...t, 摘要: summary, 摘要时间: prev.游戏时间 || '', 摘要更新时间: lastStamp };
+                };
+                return {
+                    ...prev,
+                    手机: {
+                        ...phone,
+                        对话: {
+                            私聊: (phone.对话?.私聊 || []).map(updateThread),
+                            群聊: (phone.对话?.群聊 || []).map(updateThread),
+                            公共频道: (phone.对话?.公共频道 || []).map(updateThread),
+                        }
+                    }
+                };
+            });
+        } finally {
+            phoneSummaryInFlight.current.delete(thread.id);
+        }
+    };
+
+    const shouldTriggerAdvance = (trigger: any, state: GameState) => {
+        if (!trigger) return false;
+        const location = state.当前地点 || '';
+        if (Array.isArray(trigger.locations) && trigger.locations.some((l: string) => location.includes(l))) return true;
+        if (Array.isArray(trigger.confidants)) {
+            const present = new Set((state.社交 || []).filter(c => c.是否在场).map(c => c.姓名));
+            if (trigger.confidants.some((n: string) => present.has(n))) return true;
+        }
+        if (Array.isArray(trigger.taskIds)) {
+            const active = new Set((state.任务 || []).filter(t => t.状态 === 'active').map(t => t.id));
+            if (trigger.taskIds.some((id: string) => active.has(id))) return true;
+        }
+        if (Array.isArray(trigger.storyKeywords)) {
+            const storyText = JSON.stringify(state.剧情 || {});
+            if (trigger.storyKeywords.some((k: string) => storyText.includes(k))) return true;
+        }
+        if (Array.isArray(trigger.worldKeywords)) {
+            const worldText = JSON.stringify(state.世界 || {});
+            if (trigger.worldKeywords.some((k: string) => worldText.includes(k))) return true;
+        }
+        return false;
+    };
+
+    const updatePendingForTriggers = (state: GameState) => {
+        const phone = state.手机;
+        if (!phone || !Array.isArray(phone.待发送) || phone.待发送.length === 0) return { changed: false, pending: phone?.待发送 || [] };
+        const nowTime = state.游戏时间;
+        let changed = false;
+        const updated = phone.待发送.map(item => {
+            if (item.status === 'scheduled' && shouldTriggerAdvance(item.trigger, state)) {
+                changed = true;
+                return { ...item, deliverAt: nowTime };
+            }
+            return item;
+        });
+        return { changed, pending: updated };
+    };
+
     const handleAIInteraction = async (
         input: string,
         contextType: 'ACTION' | 'PHONE' = 'ACTION',
@@ -434,6 +890,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 onStreamChunk
             );
             
+            let nextStateForPhoneSync: GameState | null = null;
             setLastAIThinking(aiResponse.thinking || '');
             setGameState(prev => {
                 if (aiResponse.rawResponse) setLastAIResponse(aiResponse.rawResponse);
@@ -513,8 +970,13 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 newState.日志 = [...newState.日志, ...newLogs];
                 newState.处理中 = false;
                 newState.回合数 = (prev.回合数 || 1) + 1;
+                nextStateForPhoneSync = newState;
                 return newState;
             });
+
+            if (aiResponse.phone_sync_plan && nextStateForPhoneSync) {
+                handlePhoneSyncPlan(aiResponse.phone_sync_plan, nextStateForPhoneSync);
+            }
         } catch (error: any) {
             if (isAbortError(error)) {
                 setGameState(prev => ({ ...prev, 处理中: false }));
@@ -697,9 +1159,29 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         setGameState(prev => ({ ...prev, 处理中: false }));
         clearPendingCommands(); 
     };
-    const handleSendMessage = (text: string, thread: PhoneThread) => {
+    const handlePhoneSyncPlan = async (plan: any, baseState: GameState) => {
+        const localCheck = isPhoneLocallyAvailable(baseState);
+        if (!localCheck.ok) return;
+        if (!isPhoneApiConfigured(settings)) return;
+        try {
+            const input = `[PHONE_SYNC_PLAN]\n${JSON.stringify(plan)}`;
+            const phoneResp = await generatePhoneResponse(input, baseState, settings);
+            if (!phoneResp.allowed) return;
+            const playerName = baseState.角色?.姓名 || 'Player';
+            const nextState = applyPhoneResponseToState(baseState, phoneResp, playerName);
+            setGameState(nextState);
+        } catch (e) {
+            console.error('Phone sync plan failed', e);
+        }
+    };
+    const handleSendMessage = async (text: string, thread: PhoneThread) => {
         const trimmed = text.trim();
         if (!trimmed || !thread) return;
+        const localCheck = isPhoneLocallyAvailable(gameState);
+        if (!localCheck.ok) {
+            alert(localCheck.reason || '当前无法使用手机');
+            return;
+        }
         const timestampValue = Date.now();
         const playerName = gameState.角色?.姓名 || 'Player';
         const newMsg: PhoneMessage = {
@@ -731,7 +1213,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 ? (thread.成员 || []).find(m => m && m !== playerName)
                 : null;
             if (otherParty) {
-                const recent = Array.isArray(nextPhone.联系人?.最近) ? nextPhone.联系人!.最近! : [];
+                const recent = Array.isArray(nextPhone.联系人?.最近) ? nextPhone.联系人?.最近 : [];
                 const nextRecent = [otherParty, ...recent.filter(n => n !== otherParty)].slice(0, 8);
                 nextPhone.联系人 = { ...nextPhone.联系人, 最近: nextRecent };
             }
@@ -743,7 +1225,46 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             ? (thread.成员 || []).find(m => m && m !== playerName) || thread.标题
             : thread.标题;
         const channelLabel = thread.类型 === 'private' ? '私信' : (thread.类型 === 'group' ? '群聊' : '公共频道');
-        handleAIInteraction(`[手机/${channelLabel}] ${otherParty}: ${trimmed}`, 'PHONE', [], nextState, true);
+        if (!isPhoneApiConfigured(settings)) {
+            const finalState = appendPhoneMemoryEntries(nextState, [`【手机】与${otherParty}聊天：${trimmed}`]);
+            setGameState(finalState);
+            return;
+        }
+        try {
+            const phoneInput = `[PHONE_CHAT]\n[手机/${channelLabel}] ${otherParty}: ${trimmed}`;
+            const phoneResp = await generatePhoneResponse(phoneInput, nextState, settings);
+            if (!phoneResp.allowed) {
+                alert(phoneResp.blocked_reason || '当前剧情环境无法使用手机');
+                setGameState(prev => {
+                    const phone = prev.手机;
+                    if (!phone) return prev;
+                    const updateThread = (t: PhoneThread) => ({
+                        ...t,
+                        消息: (t.消息 || []).map(m => m.id === newMsg.id ? { ...m, 状态: 'failed' } : m)
+                    });
+                    return {
+                        ...prev,
+                        手机: {
+                            ...phone,
+                            对话: {
+                                私聊: (phone.对话?.私聊 || []).map(updateThread),
+                                群聊: (phone.对话?.群聊 || []).map(updateThread),
+                                公共频道: (phone.对话?.公共频道 || []).map(updateThread),
+                            }
+                        }
+                    };
+                });
+                return;
+            }
+            const adjustedResp = adjustPhoneResponseForChat(phoneResp);
+            let finalState = applyPhoneResponseToState(nextState, adjustedResp, playerName);
+            finalState = appendPhoneMemoryEntries(finalState, [`【手机】与${otherParty}聊天：${trimmed}`]);
+            setGameState(finalState);
+            requestThreadSummary(thread, finalState);
+        } catch (e: any) {
+            alert(`手机API调用失败: ${e.message || '未知错误'}`);
+            setGameState(prev => appendPhoneMemoryEntries(prev, [`【手机】与${otherParty}聊天：${trimmed}`]));
+        }
     };
     const handleEditPhoneMessage = (id: string, content: string) => {
         if (!id) return;
@@ -800,11 +1321,17 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         const aiInput = commandBlock ? `${commandBlock}${text}` : text;
         handleAIInteraction(aiInput, 'ACTION', commandPayload, undefined, false, text);
     };
-    const handleCreateMoment = (content: string, imageDesc?: string) => {
+    const handleCreateMoment = async (content: string, imageDesc?: string) => {
         if (!content.trim()) return;
+        const localCheck = isPhoneLocallyAvailable(gameState);
+        if (!localCheck.ok) {
+            alert(localCheck.reason || '当前无法使用手机');
+            return;
+        }
         const timestampValue = Date.now();
+        const postId = `Mom_${timestampValue}`;
         const newPost: PhonePost = {
-            id: `Mom_${timestampValue}`,
+            id: postId,
             发布者: gameState.角色.姓名 || 'Player',
             头像: gameState.角色.头像 || '',
             内容: content.trim(),
@@ -815,7 +1342,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             图片描述: imageDesc || undefined,
             可见性: 'friends'
         };
-        const nextState = {
+        const nextState: GameState = {
             ...gameState,
             手机: {
                 ...gameState.手机,
@@ -827,13 +1354,53 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         };
         setGameState(nextState);
         const descText = imageDesc ? `（图片描述：${imageDesc}）` : '';
-        handleAIInteraction(`我在朋友圈发布动态：${content.trim()}${descText}`, 'PHONE', [], nextState, true);
+        if (!isPhoneApiConfigured(settings)) {
+            const finalState = appendPhoneMemoryEntries(nextState, [`【手机】朋友圈发布：${content.trim()}`]);
+            setGameState(finalState);
+            return;
+        }
+        try {
+            const phoneResp = await generatePhoneResponse(`[PHONE_POST] 我在朋友圈发布动态：${content.trim()}${descText}`, nextState, settings);
+            if (!phoneResp.allowed) {
+                alert(phoneResp.blocked_reason || '当前剧情环境无法使用手机');
+                setGameState(prev => {
+                    const phone = prev.手机;
+                    if (!phone) return prev;
+                    const nextPosts = (phone.朋友圈?.帖子 || []).filter(p => p.id !== postId);
+                    return {
+                        ...prev,
+                        手机: {
+                            ...phone,
+                            朋友圈: {
+                                ...(phone.朋友圈 || {}),
+                                帖子: nextPosts
+                            }
+                        }
+                    };
+                });
+                return;
+            }
+            setGameState(prev => {
+                let finalState = applyPhoneResponseToState(prev, phoneResp, gameState.角色?.姓名 || 'Player');
+                finalState = appendPhoneMemoryEntries(finalState, [`【手机】朋友圈发布：${content.trim()}`]);
+                return finalState;
+            });
+        } catch (e: any) {
+            alert(`手机API调用失败: ${e.message || '未知错误'}`);
+            setGameState(prev => appendPhoneMemoryEntries(prev, [`【手机】朋友圈发布：${content.trim()}`]));
+        }
     };
-    const handleCreatePublicPost = (content: string, imageDesc?: string, topic?: string) => {
+    const handleCreatePublicPost = async (content: string, imageDesc?: string, topic?: string) => {
         if (!content.trim()) return;
+        const localCheck = isPhoneLocallyAvailable(gameState);
+        if (!localCheck.ok) {
+            alert(localCheck.reason || '当前无法使用手机');
+            return;
+        }
         const timestampValue = Date.now();
+        const postId = `Forum_${timestampValue}`;
         const newPost: PhonePost = {
-            id: `Forum_${timestampValue}`,
+            id: postId,
             发布者: gameState.角色.姓名 || 'Player',
             头像: gameState.角色.头像 || '',
             内容: content.trim(),
@@ -845,7 +1412,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             可见性: 'public',
             话题: topic ? [topic] : undefined
         };
-        const nextState = {
+        const nextState: GameState = {
             ...gameState,
             手机: {
                 ...gameState.手机,
@@ -858,7 +1425,58 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         setGameState(nextState);
         const descText = imageDesc ? `（图片描述：${imageDesc}）` : '';
         const topicText = topic ? `（板块：${topic}）` : '';
-        handleAIInteraction(`我在公共论坛发布帖子：${content.trim()}${descText}${topicText}`, 'PHONE', [], nextState, true);
+        if (!isPhoneApiConfigured(settings)) {
+            let finalState = appendPhoneMemoryEntries(nextState, [`【手机】论坛发布：${content.trim()}`]);
+            setGameState(finalState);
+            handleWorldInfoUpdate(`论坛动态：${content.trim()}`, finalState);
+            return;
+        }
+        try {
+            const phoneResp = await generatePhoneResponse(`[PHONE_POST] 我在公共论坛发布帖子：${content.trim()}${descText}${topicText}`, nextState, settings);
+            if (!phoneResp.allowed) {
+                alert(phoneResp.blocked_reason || '当前剧情环境无法使用手机');
+                setGameState(prev => {
+                    const phone = prev.手机;
+                    if (!phone) return prev;
+                    const nextPosts = (phone.公共帖子?.帖子 || []).filter(p => p.id !== postId);
+                    return {
+                        ...prev,
+                        手机: {
+                            ...phone,
+                            公共帖子: {
+                                ...(phone.公共帖子 || {}),
+                                帖子: nextPosts
+                            }
+                        }
+                    };
+                });
+                return;
+            }
+            let updatedState: GameState | null = null;
+            setGameState(prev => {
+                let finalState = applyPhoneResponseToState(prev, phoneResp, gameState.角色?.姓名 || 'Player');
+                finalState = appendPhoneMemoryEntries(finalState, [`【手机】论坛发布：${content.trim()}`]);
+                updatedState = finalState;
+                return finalState;
+            });
+            if (updatedState) {
+                handleWorldInfoUpdate(`论坛动态：${content.trim()}`, updatedState);
+            }
+        } catch (e: any) {
+            alert(`手机API调用失败: ${e.message || '未知错误'}`);
+            setGameState(prev => appendPhoneMemoryEntries(prev, [`【手机】论坛发布：${content.trim()}`]));
+            handleWorldInfoUpdate(`论坛动态：${content.trim()}`, nextState);
+        }
+    };
+    const handleWaitForPhoneReply = (thread?: PhoneThread | null) => {
+        if (!thread || isProcessing) return;
+        const target = thread.标题 || '对方';
+        const waitText = thread.类型 === 'public'
+            ? `我等待公共频道【${target}】的回复。`
+            : thread.类型 === 'group'
+                ? `我等待群聊【${target}】的回复。`
+                : `我等待${target}的回复。`;
+        handleAIInteraction(`（等待手机回复）${waitText}`, 'ACTION');
     };
     const handleCreateThread = (payload: { type: 'private' | 'group' | 'public'; title: string; members: string[] }) => {
         const title = payload.title?.trim();
@@ -897,16 +1515,17 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             };
         });
     };
-    const handleSilentWorldUpdate = async () => {
+    const handleWorldInfoUpdate = async (reason: string, stateOverride?: GameState) => {
         if (silentUpdateInFlight.current || isProcessing) return;
         silentUpdateInFlight.current = true;
         try {
-            const aiResponse = await generateDungeonMasterResponse(
-                "【系统】世界情报静默更新",
-                gameState,
+            const baseState = stateOverride || gameState;
+            const input = reason ? `【系统】世界情报更新：${reason}` : '【系统】世界情报静默更新';
+            const aiResponse = await generateWorldInfoResponse(
+                input,
+                baseState,
                 settings,
-                "",
-                [],
+                undefined,
                 undefined
             );
             setGameState(prev => {
@@ -916,22 +1535,39 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 return newState;
             });
         } catch (e) {
-            console.error("Silent world update failed", e);
+            console.error('World info update failed', e);
         } finally {
             silentUpdateInFlight.current = false;
         }
     };
+    const handleMarkThreadRead = (threadId: string) => {
+        if (!threadId) return;
+        setGameState(prev => {
+            const phone = prev.手机;
+            if (!phone) return prev;
+            const updateThread = (t: PhoneThread) => {
+                if (t.id !== threadId) return t;
+                const nextMessages = (t.消息 || []).map(m => (
+                    m.状态 === 'received' ? { ...m, 状态: 'read' } : m
+                ));
+                return { ...t, 未读: 0, 消息: nextMessages };
+            };
+            return {
+                ...prev,
+                手机: {
+                    ...phone,
+                    对话: {
+                        私聊: (phone.对话?.私聊 || []).map(updateThread),
+                        群聊: (phone.对话?.群聊 || []).map(updateThread),
+                        公共频道: (phone.对话?.公共频道 || []).map(updateThread),
+                    }
+                }
+            };
+        });
+    };
 
-    const parseGameTime = (input?: string) => {
-        if (!input) return null;
-        const dayMatch = input.match(/第(\d+)日/);
-        const timeMatch = input.match(/(\d{1,2}):(\d{2})/);
-        if (!dayMatch || !timeMatch) return null;
-        const day = parseInt(dayMatch[1], 10);
-        const hour = parseInt(timeMatch[1], 10);
-        const minute = parseInt(timeMatch[2], 10);
-        if ([day, hour, minute].some(n => Number.isNaN(n))) return null;
-        return day * 24 * 60 + hour * 60 + minute;
+    const handleSilentWorldUpdate = async () => {
+        await handleWorldInfoUpdate('世界情报静默更新', gameState);
     };
 
     useEffect(() => {
@@ -944,6 +1580,37 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             handleSilentWorldUpdate();
         }
     }, [gameState.游戏时间, gameState.世界?.下次更新]);
+
+    useEffect(() => {
+        if (!gameState.手机?.待发送 || gameState.手机.待发送.length === 0) return;
+        const triggerResult = updatePendingForTriggers(gameState);
+        let nextState = gameState;
+        if (triggerResult.changed) {
+            nextState = { ...nextState, 手机: { ...nextState.手机, 待发送: triggerResult.pending } };
+        }
+        const delivery = applyPhoneDeliveries(nextState, nextState.游戏时间);
+        if (!triggerResult.changed && delivery.delivered.length === 0) return;
+        let finalState = delivery.nextState;
+        if (delivery.delivered.length > 0) {
+            const memoryEntries = delivery.delivered
+                .filter(m => m.内容)
+                .map(m => `【手机】与${m.发送者 || '未知'}聊天：${m.内容}`);
+            finalState = appendPhoneMemoryEntries(finalState, memoryEntries);
+            pushPhoneNotification('手机新消息', `收到 ${delivery.delivered.length} 条新消息`);
+            const affected = new Set(delivery.delivered.map(m => m.id));
+            const allThreads = [
+                ...(finalState.手机?.对话?.私聊 || []),
+                ...(finalState.手机?.对话?.群聊 || []),
+                ...(finalState.手机?.对话?.公共频道 || [])
+            ];
+            allThreads.forEach(t => {
+                if ((t.消息 || []).some(m => affected.has(m.id))) {
+                    requestThreadSummary(t, finalState);
+                }
+            });
+        }
+        setGameState(finalState);
+    }, [gameState.游戏时间, gameState.手机?.待发送, gameState.当前地点, gameState.社交, gameState.剧情, gameState.世界]);
     const handlePlayerAction = (action: 'attack' | 'skill' | 'guard' | 'escape' | 'talk' | 'item', payload?: any) => {
         if (isProcessing) return;
         let input = "";
@@ -1133,8 +1800,9 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         gameState, setGameState, settings, setSettings,
         commandQueue, pendingCommands, addToQueue, removeFromQueue, currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming, draftInput, setDraftInput,
         memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
-        handleAIInteraction, stopInteraction, handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleCreatePublicPost, handleCreateThread, handleSilentWorldUpdate, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
+        handleAIInteraction, stopInteraction, handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleCreatePublicPost, handleCreateThread, handleMarkThreadRead, handleSilentWorldUpdate, handleWaitForPhoneReply, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
         handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask,
-        handleEditPhoneMessage, handleDeletePhoneMessage
+        handleEditPhoneMessage, handleDeletePhoneMessage,
+        phoneNotifications
     };
 };

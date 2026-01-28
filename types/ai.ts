@@ -17,6 +17,7 @@ export interface GlobalAISettings {
     world: AIEndpointConfig;
     npcSync: AIEndpointConfig;
     npcBrain: AIEndpointConfig;
+    phone?: AIEndpointConfig;
   };
   nativeThinkingChain?: boolean;
 }
@@ -163,4 +164,19 @@ export interface AIResponse {
   thinking_post?: string; // 第二段思考
   narrative?: string; // Optional for legacy support
   repairNote?: string; // 本地修复提示
+  phone_sync_plan?: any; // 手机剧情同步指令（JSON 字段）
+}
+
+export interface PhoneAIResponse {
+  allowed: boolean;
+  blocked_reason?: string;
+  messages?: any[];
+  phone_updates?: any;
+  tavern_commands?: TavernCommand[];
+  short_memory?: string[];
+  time_advance_minutes?: number;
+  thread_summaries?: { threadId: string; summary: string }[];
+  rawResponse?: string;
+  thinking?: string;
+  repairNote?: string;
 }
