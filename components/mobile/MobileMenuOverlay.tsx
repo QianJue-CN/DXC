@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Users, ClipboardList, Zap, Settings, Smartphone, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive } from 'lucide-react';
+import { X, Users, ClipboardList, Zap, Settings, Smartphone, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive, StickyNote } from 'lucide-react';
 
 interface MobileMenuOverlayProps {
     isOpen: boolean;
@@ -21,6 +21,7 @@ interface MobileMenuOverlayProps {
         onOpenLootVault: () => void;
         onOpenSaveManager: () => void;
         onOpenMemory: () => void;
+        onOpenNotes: () => void;
         onOpenPresent: () => void;
         onOpenParty: () => void;
     };
@@ -41,7 +42,7 @@ export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, on
         { label: "手机", icon: <Smartphone />, action: actions.onOpenPhone, color: "bg-blue-900/80 border-blue-700", disabled: !hasPhone },
         { label: "眷族", icon: <Flag />, action: actions.onOpenFamilia, color: "bg-blue-800/80 border-blue-600" },
 
-        { label: "任务", icon: <ClipboardList />, action: actions.onOpenTasks, color: "bg-purple-900/80 border-purple-700" },
+        { label: "任务", icon: <ClipboardList />, action: actions.onOpenTasks, color: "bg-amber-900/80 border-amber-700" },
         { label: "存档", icon: <HardDrive />, action: actions.onOpenSaveManager, color: "bg-slate-900/80 border-slate-700" },
         { label: "剧情", icon: <BookOpen />, action: actions.onOpenStory, color: "bg-green-900/80 border-green-700" },
         { label: "契约", icon: <Scroll />, action: actions.onOpenContract, color: "bg-red-900/80 border-red-700" },
@@ -49,7 +50,8 @@ export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, on
 
         { label: "周围", icon: <Radar />, action: actions.onOpenPresent, color: "bg-zinc-800 border-zinc-600" },
         { label: "世界", icon: <Globe />, action: actions.onOpenWorld, color: "bg-cyan-900/80 border-cyan-700" },
-        { label: "记忆", icon: <Brain />, action: actions.onOpenMemory, color: "bg-fuchsia-900/80 border-fuchsia-700" },
+        { label: "记忆", icon: <Brain />, action: actions.onOpenMemory, color: "bg-emerald-900/80 border-emerald-700" },
+        { label: "笔记", icon: <StickyNote />, action: actions.onOpenNotes, color: "bg-cyan-900/80 border-cyan-700" },
         { label: "系统", icon: <Settings />, action: actions.onOpenSettings, color: "bg-black border-2 border-white" },
     ];
 

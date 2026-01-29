@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { LogEntry, CombatState, CharacterStats, Skill, MagicSpell, InventoryItem, Confidant, ActionOption } from '../../types';
-import { MessageSquare, Sword, Eye, Loader2, ChevronRight, MousePointer2, Terminal, Layers, ChevronUp, Info } from 'lucide-react';
+import { MessageSquare, Sword, Eye, Loader2, ChevronRight, MousePointer2, Terminal, Layers, ChevronUp, Info, Search, Pin } from 'lucide-react';
 import { CombatPanel } from './CombatPanel';
 import { LogEntryItem } from './center/LogEntry';
 import { GameInput } from './center/GameInput';
@@ -33,6 +33,7 @@ interface CenterPanelProps {
   handleUserRewrite?: (logId: string, newText: string) => void; 
   draftInput?: string;
   setDraftInput?: (val: string) => void;
+  onToggleLogPin?: (logId: string) => void;
 
   actionOptions?: ActionOption[];
   fontSize?: 'small' | 'medium' | 'large'; 
@@ -68,6 +69,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
     handleUserRewrite,
     draftInput,
     setDraftInput,
+    onToggleLogPin,
 
     actionOptions = [],
     fontSize = 'medium',
@@ -84,6 +86,8 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
   const [jumpHint, setJumpHint] = useState('');
   const [jumpExpanded, setJumpExpanded] = useState(false);
   const [jumpFocused, setJumpFocused] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [showPinnedOnly, setShowPinnedOnly] = useState(false);
   const jumpHideTimer = useRef<number | null>(null);
   
   // Refs for scrolling
@@ -131,6 +135,15 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
       if (t === 0) return true;
       return visibleTurnSet.has(t);
   });
+  const normalizedQuery = filterQuery.trim().toLowerCase();
+  const filteredLogs = visibleLogs.filter(log => {
+      if (showPinnedOnly && !log.pinned) return false;
+      if (!normalizedQuery) return true;
+      const senderMatch = (log.sender || '').toLowerCase().includes(normalizedQuery);
+      const textMatch = (log.text || '').toLowerCase().includes(normalizedQuery);
+      return senderMatch || textMatch;
+  });
+  const pinnedCount = visibleLogs.filter(l => l.pinned).length;
   const aiActionSeen = new Set<string>();
   const logIndexMap = new Map<string, number>();
   logs.forEach((log, idx) => logIndexMap.set(log.id, idx));
@@ -338,6 +351,43 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
           </div>
       )}
 
+      <div className="absolute top-4 left-4 z-30">
+          <div className="flex items-center gap-2 bg-black/80 border border-zinc-700 px-3 py-2 text-[10px] text-zinc-300 shadow-lg">
+              <Search size={12} className="text-zinc-400" />
+              <input
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  placeholder="搜索对白/旁白"
+                  className="w-28 md:w-40 bg-transparent text-zinc-200 outline-none placeholder:text-zinc-600"
+              />
+              <button
+                  type="button"
+                  onClick={() => setShowPinnedOnly(!showPinnedOnly)}
+                  className={`flex items-center gap-1 px-2 py-0.5 border text-[10px] uppercase tracking-widest transition-colors ${
+                      showPinnedOnly ? 'border-amber-400 text-amber-300 bg-amber-900/30' : 'border-zinc-700 text-zinc-400'
+                  }`}
+                  title={showPinnedOnly ? '显示全部' : '仅看收藏'}
+              >
+                  <Pin size={10} /> {pinnedCount}
+              </button>
+              {(filterQuery || showPinnedOnly) && (
+                  <button
+                      type="button"
+                      onClick={() => { setFilterQuery(''); setShowPinnedOnly(false); }}
+                      className="text-zinc-500 hover:text-white"
+                      title="清除筛选"
+                  >
+                      ✕
+                  </button>
+              )}
+          </div>
+          {(filterQuery || showPinnedOnly) && (
+              <div className="mt-1 text-[10px] text-zinc-500">
+                  显示 {filteredLogs.length}/{visibleLogs.length}
+              </div>
+          )}
+      </div>
+
       {totalTurns > 0 && (
           <div className="absolute top-4 right-4 z-30">
               {jumpExpanded ? (
@@ -399,7 +449,7 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
         ref={containerRef}
         className={`flex-1 overflow-y-auto p-4 md:p-10 z-10 custom-scrollbar scroll-smooth ${logPaddingClass}`}
       >
-        {visibleLogs.map((log) => {
+        {filteredLogs.map((log) => {
             const globalIndex = logIndexMap.get(log.id) ?? 0;
             const prevLog = logs[globalIndex - 1];
             const isNewTurn = log.turnIndex !== undefined && log.turnIndex > 0 && (!prevLog || log.turnIndex !== prevLog.turnIndex);
@@ -425,10 +475,17 @@ export const CenterPanel: React.FC<CenterPanelProps> = ({
                         fontSize={fontSize} 
                         showAiToolbar={showAiToolbar}
                         isHellMode={isHellMode}
+                        onTogglePin={onToggleLogPin}
                     />
                 </div>
             );
         })}
+
+        {filteredLogs.length === 0 && (
+            <div className="py-10 text-center text-zinc-600 text-xs font-mono">
+                没有匹配的记录
+            </div>
+        )}
         
         {/* Streaming Raw Data Display */}
         {isStreaming && lastRawResponse ? (

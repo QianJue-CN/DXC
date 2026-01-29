@@ -44,6 +44,8 @@ export interface LogEntry {
   responseId?: string; // AI响应分组ID
   repairNote?: string; // 本地修复提示
   gameTime?: string; // NEW: 游戏内完整时间 "YYYY-MM-DD HH:MM"
+  pinned?: boolean; // 收藏/置顶
+  tags?: string[]; // 自定义标签
 }
 
 export interface MemoryEntry {

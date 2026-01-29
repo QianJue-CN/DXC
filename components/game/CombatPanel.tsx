@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { CombatState, CharacterStats, Skill, MagicSpell, InventoryItem, Enemy } from '../../types';
+import { getItemCategory } from '../../utils/itemUtils';
 import { Sword, Shield, Zap, Skull, MessageSquare, Crosshair, Package, Activity, AlertTriangle, X, Target, Swords } from 'lucide-react';
 
 interface CombatPanelProps {
@@ -53,7 +54,7 @@ export const CombatPanel: React.FC<CombatPanelProps> = ({
 
   if (enemies.length === 0) return <div className="p-10 text-white animate-pulse">扫描敌对目标中...</div>;
 
-  const validConsumables = inventory.filter(i => i.类型 === 'consumable');
+  const validConsumables = inventory.filter(i => getItemCategory(i) === 'CONSUMABLE');
 
   const handleFreeActionSubmit = (e: React.FormEvent) => {
       e.preventDefault();

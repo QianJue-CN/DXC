@@ -6,7 +6,8 @@ export interface InventoryItem {
   数量: number;
   
   // 类型定义
-  类型: 'consumable' | 'material' | 'key_item' | 'weapon' | 'armor' | 'loot'; 
+  类型: 'consumable' | 'material' | 'key_item' | 'weapon' | 'armor' | 'loot'
+    | '消耗品' | '材料' | '关键物品' | '钥匙物品' | '武器' | '防具' | '护甲' | '饰品' | '战利品' | '掉落' | '杂项'; 
   获取途径?: 'dungeon' | 'public'; 
 
   // 标签与来源
@@ -22,7 +23,9 @@ export interface InventoryItem {
   装备槽位?: string; 
   
   // --- 核心属性 (原 ItemStats 扁平化) ---
-  品质?: 'Broken' | 'Common' | 'Rare' | 'Epic' | 'Legendary' | '普通' | '稀有' | '史诗' | '传说' | '破损'; // 兼容中文枚举
+  品质?: 'Broken' | 'Common' | 'Rare' | 'Epic' | 'Legendary'
+    | '普通' | '精良' | '稀有' | '史诗' | '传说' | '神话' | '破损'; // 兼容中文枚举
+  稀有度?: string; // 可选中文稀有度别名
   
   // 战斗数值
   攻击力?: number;

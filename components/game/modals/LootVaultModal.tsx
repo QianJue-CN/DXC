@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Archive, Gem, Box, Shield, Sword, Beaker, Leaf, Star } from 'lucide-react';
 import { InventoryItem } from '../../../types';
+import { getItemCategory, getTypeLabel, getQualityLabel, normalizeQuality } from '../../../utils/itemUtils';
 
 interface LootVaultModalProps {
   isOpen: boolean;
@@ -9,7 +10,7 @@ interface LootVaultModalProps {
 }
 
 const getQualityStyle = (quality: string = 'Common') => {
-  switch (quality) {
+  switch (normalizeQuality(quality)) {
     case 'Legendary':
       return { border: 'border-yellow-500', text: 'text-yellow-400', glow: 'shadow-[0_0_20px_rgba(234,179,8,0.35)]' };
     case 'Epic':
@@ -23,42 +24,20 @@ const getQualityStyle = (quality: string = 'Common') => {
   }
 };
 
-const getItemIcon = (type: string) => {
-  switch (type) {
-    case 'weapon':
+const getItemIcon = (category: string) => {
+  switch (category) {
+    case 'WEAPON':
       return <Sword size={28} />;
-    case 'armor':
+    case 'ARMOR':
       return <Shield size={28} />;
-    case 'consumable':
+    case 'CONSUMABLE':
       return <Beaker size={28} />;
-    case 'material':
+    case 'MATERIAL':
       return <Leaf size={28} />;
-    case 'key_item':
+    case 'KEY_ITEM':
       return <Box size={28} />;
     default:
       return <Gem size={28} />;
-  }
-};
-
-const getTypeLabel = (type: string) => {
-  switch (type) {
-    case 'weapon': return '武器';
-    case 'armor': return '防具';
-    case 'consumable': return '消耗品';
-    case 'material': return '材料';
-    case 'key_item': return '关键';
-    case 'loot': return '战利品';
-    default: return type || '未知';
-  }
-};
-
-const getQualityLabel = (quality: string = 'Common') => {
-  switch (quality) {
-    case 'Legendary': return '传说';
-    case 'Epic': return '史诗';
-    case 'Rare': return '稀有';
-    case 'Broken': return '破损';
-    default: return '普通';
   }
 };
 
@@ -84,16 +63,17 @@ export const LootVaultModal: React.FC<LootVaultModalProps> = ({ isOpen, onClose,
         <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {items.length > 0 ? items.map((item) => {
-              const quality = item.品质 || 'Common';
+              const quality = item.品质 || item.稀有度 || 'Common';
               const style = getQualityStyle(quality);
               const durCurrent = item.耐久 ?? null;
               const durMax = item.最大耐久 ?? null;
               const durPercent = durCurrent !== null && durMax ? Math.min(100, (durCurrent / durMax) * 100) : null;
+              const category = getItemCategory(item);
               return (
                 <div key={item.id} className={`relative bg-black/70 border-2 ${style.border} p-4 flex flex-col gap-3 ${style.glow}`}>
                   <div className="flex items-start gap-3">
                     <div className={`w-14 h-14 flex items-center justify-center border ${style.border} ${style.text} bg-black/60`}>
-                      {getItemIcon(item.类型)}
+                      {getItemIcon(category)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">

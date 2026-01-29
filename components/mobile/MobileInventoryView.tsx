@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Package, Sword, Shield, Box, Gem, ArrowRightCircle, LogOut, Beaker, X, AlertCircle, Wrench, Star, ChevronRight } from 'lucide-react';
 import { InventoryItem } from '../../types';
+import { getItemCategory, getDefaultEquipSlot, getTypeLabel, getQualityLabel, normalizeQuality, isWeaponItem, isArmorItem } from '../../utils/itemUtils';
 
 interface MobileInventoryViewProps {
   items: InventoryItem[];
@@ -49,21 +50,21 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
 
     const filteredItems = useMemo(() => {
         if (filter === 'ALL') return allItems;
-        return allItems.filter(i => i.类型.toUpperCase() === filter);
+        return allItems.filter(i => getItemCategory(i) === filter);
     }, [allItems, filter]);
 
-    const getItemIcon = (type: string) => {
-        switch(type) {
-            case 'weapon': return <Sword size={20} />;
-            case 'armor': return <Shield size={20} />;
-            case 'loot': return <Gem size={20} />;
-            case 'consumable': return <Beaker size={20} />;
+    const getItemIcon = (item: InventoryItem) => {
+        switch(getItemCategory(item)) {
+            case 'WEAPON': return <Sword size={20} />;
+            case 'ARMOR': return <Shield size={20} />;
+            case 'LOOT': return <Gem size={20} />;
+            case 'CONSUMABLE': return <Beaker size={20} />;
             default: return <Package size={20} />;
         }
     };
 
     const getRarityColor = (quality: string = 'Common') => {
-        switch(quality) {
+        switch(normalizeQuality(quality)) {
             case 'Legendary': return 'text-yellow-400 border-yellow-500 bg-yellow-950/20';
             case 'Epic': return 'text-purple-300 border-purple-500 bg-purple-950/20';
             case 'Rare': return 'text-cyan-300 border-cyan-500 bg-cyan-950/20';
@@ -103,7 +104,8 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
             {/* List */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2 pb-32 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] bg-zinc-950">
                 {filteredItems.length > 0 ? filteredItems.map(item => {
-                    const quality = item.品质 || 'Common';
+                    const quality = item.品质 || item.稀有度 || 'Common';
+                    const qualityLabel = getQualityLabel(quality);
                     const rarityStyle = getRarityColor(quality);
                     const isSelected = selectedItem?.id === item.id;
                     
@@ -119,7 +121,7 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
                             `}
                         >
                             <div className={`w-10 h-10 flex items-center justify-center rounded border ${rarityStyle.split(' ')[1]} ${rarityStyle.split(' ')[0]} shrink-0 bg-black`}>
-                                {getItemIcon(item.类型)}
+                                {getItemIcon(item)}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-center">
@@ -129,7 +131,7 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
                                     {item.数量 > 1 && <span className="text-[10px] text-zinc-400 bg-zinc-900 px-1.5 border border-zinc-700">x{item.数量}</span>}
                                 </div>
                                 <div className="flex items-center justify-between mt-1">
-                                    <span className="text-[9px] text-zinc-500 uppercase">{quality} {item.类型}</span>
+                                    <span className="text-[9px] text-zinc-500 uppercase">{qualityLabel} {getTypeLabel(item.类型)}</span>
                                     {item.已装备 && <span className="text-[9px] text-black font-bold bg-cyan-500 px-1 uppercase skew-x-[-10deg]">已装备</span>}
                                 </div>
                             </div>
@@ -153,7 +155,7 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
                     <div className="flex justify-between items-start mb-4 border-b border-blue-900 pb-3">
                         <div>
                             <div className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1">选中物品</div>
-                            <h3 className={`text-2xl font-display uppercase tracking-tighter italic ${getRarityColor(selectedItem.品质).split(' ')[0]}`}>
+                            <h3 className={`text-2xl font-display uppercase tracking-tighter italic ${getRarityColor(selectedItem.品质 || selectedItem.稀有度).split(' ')[0]}`}>
                                 {selectedItem.名称}
                             </h3>
                         </div>
@@ -226,10 +228,10 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
 
                     {/* Action Bar */}
                     <div className="flex gap-3 mt-6 pt-4 border-t border-dashed border-blue-900 shrink-0">
-                        {(selectedItem.类型 === 'weapon' || selectedItem.类型 === 'armor') && (
+                        {(isWeaponItem(selectedItem) || isArmorItem(selectedItem)) && (
                             selectedItem.已装备 ? (
                                 <button 
-                                    onClick={() => { onUnequipItem(selectedItem.装备槽位 || (selectedItem.类型==='weapon'?'主手':'身体'), selectedItem.名称, selectedItem.id); setSelectedItem(null); }}
+                                    onClick={() => { onUnequipItem(getDefaultEquipSlot(selectedItem), selectedItem.名称, selectedItem.id); setSelectedItem(null); }}
                                     className="flex-1 py-3 bg-black text-yellow-500 border-2 border-yellow-600 font-bold uppercase flex items-center justify-center gap-2 hover:bg-yellow-600 hover:text-black transition-colors"
                                 >
                                     <LogOut size={16}/> 卸下
@@ -243,7 +245,7 @@ export const MobileInventoryView: React.FC<MobileInventoryViewProps> = ({
                                 </button>
                             )
                         )}
-                        {selectedItem.类型 === 'consumable' && (
+                        {getItemCategory(selectedItem) === 'CONSUMABLE' && (
                             <button 
                                 onClick={() => { onUseItem(selectedItem); setSelectedItem(null); }}
                                 className="flex-1 py-3 bg-green-600 text-white font-bold uppercase flex items-center justify-center gap-2 shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all border-2 border-green-400"

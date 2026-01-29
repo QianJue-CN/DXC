@@ -28,10 +28,15 @@
             "sender": "String",
             "timestamp": "Number",
             "turnIndex": "Number?",
+            "thinking": "String?",
             "rawResponse": "String?",
             "snapshot": "String?",
             "isRaw": "Boolean?",
-            "gameTime": "String?"
+            "responseId": "String?",
+            "repairNote": "String?",
+            "gameTime": "String?",
+            "pinned": "Boolean?",
+            "tags": "String[]?"
         }
     },
     {
@@ -57,6 +62,7 @@
             "体力": "Number",
             "最大体力": "Number",
             "疲劳度": "Number",
+            "最大负重": "Number",
             "公会评级": "String",
             "魔法栏位": "{上限, 已使用, 扩展来源[]}",
             "生存状态": { "饱腹度": "Number", "最大饱腹度": "Number", "水分": "Number", "最大水分": "Number" },
@@ -84,9 +90,9 @@
             "名称": "String",
             "描述": "String",
             "数量": "Number",
-            "类型": "consumable | weapon | armor | material | key_item | loot",
+            "类型": "consumable | weapon | armor | material | key_item | loot | 消耗品 | 武器 | 防具 | 饰品 | 材料 | 关键物品 | 战利品 | 掉落",
             "获取途径": "dungeon | public",
-            "品质": "Broken/Common/Rare/Epic/Legendary",
+            "品质": "Broken/Common/Rare/Epic/Legendary/破损/普通/精良/稀有/史诗/传说/神话",
             "标签": "String[] | String",
             "来源": "String?",
             "制作者": "String?",
@@ -241,7 +247,8 @@
             "联系人": "{好友[], 黑名单[], 最近[]}",
             "对话": "{私聊[], 群聊[], 公共频道[]}",
             "朋友圈": "{仅好友可见, 帖子[]}",
-            "公共帖子": "{板块?, 帖子[]}"
+            "公共帖子": "{板块?, 帖子[]}",
+            "待发送": "Array<PhonePendingMessage>?"
         }
     },
     {
@@ -291,6 +298,21 @@
             "shortTerm": "Array<{content, timestamp, turnIndex}>",
             "mediumTerm": "String[]",
             "longTerm": "String[]"
+        }
+    },
+    {
+        title: "16. 笔记系统 (Notes)",
+        path: "gameState.笔记",
+        desc: "玩家自定义情报笔记。",
+        structure: "Array<NoteEntry>",
+        itemStructure: {
+            "id": "String",
+            "标题": "String",
+            "内容": "String",
+            "标签": "String[]?",
+            "时间戳": "String",
+            "更新时间": "String?",
+            "重要": "Boolean?"
         }
     }
 ];

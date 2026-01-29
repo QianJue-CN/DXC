@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Swords, Shield, User, Backpack, Crown, Dna, Clock, Activity } from 'lucide-react';
 import { Confidant } from '../../../types';
+import { getTypeLabel, getQualityLabel } from '../../../utils/itemUtils';
 
 interface PartyModalProps {
   isOpen: boolean;
@@ -156,11 +157,11 @@ export const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, charact
                                      <div className="grid grid-cols-2 gap-2">
                                          {selectedMember.背包 && selectedMember.背包.length > 0 ? selectedMember.背包.slice(0, 8).map((item, i) => (
                                              <div key={item.id || i} className="bg-black p-2 text-[10px] text-zinc-300 border border-zinc-800">
-                                                 <div className="text-[9px] text-zinc-500 uppercase">{getItemTypeLabel(item.类型)}</div>
+                                                 <div className="text-[9px] text-zinc-500 uppercase">{getTypeLabel(item.类型)}</div>
                                                  <div className="text-xs text-zinc-200 truncate">{item.名称}</div>
                                                  <div className="flex items-center justify-between text-[9px] text-zinc-500 mt-1">
                                                      <span>x{item.数量}</span>
-                                                     <span>{getItemQualityLabel(item.品质)}</span>
+                                                     <span>{getQualityLabel(item.品质 || item.稀有度)}</span>
                                                  </div>
                                              </div>
                                          )) : <div className="text-zinc-600 text-xs italic">暂无物品</div>}
@@ -209,25 +210,4 @@ const EquipRow = ({ label, item }: any) => (
     </div>
 );
 
-const getItemTypeLabel = (type?: string) => {
-    switch (type) {
-        case 'consumable': return '消耗品';
-        case 'material': return '材料';
-        case 'key_item': return '关键';
-        case 'weapon': return '武器';
-        case 'armor': return '防具';
-        case 'loot': return '战利品';
-        default: return type || '未知';
-    }
-};
-
-const getItemQualityLabel = (quality?: string) => {
-    switch (quality) {
-        case 'Legendary': return '传说';
-        case 'Epic': return '史诗';
-        case 'Rare': return '稀有';
-        case 'Common': return '普通';
-        case 'Broken': return '破损';
-        default: return quality || '普通';
-    }
-};
+// type/quality labels moved to itemUtils

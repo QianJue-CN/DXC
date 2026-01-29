@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, PhoneMessage, PhoneThread, PhonePendingMessage, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, PhonePost, PhoneAIResponse } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
+import { computeMaxCarry } from '../utils/characterMath';
 import { generateDungeonMasterResponse, generatePhoneResponse, generateWorldInfoResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText, mergeThinkingSegments, resolveServiceConfig } from '../utils/ai';
 import { P_MEM_S2M, P_MEM_M2L } from '../prompts';
 import { Difficulty } from '../types/enums';
@@ -178,6 +179,19 @@ const migrateNpcActionsToTracking = (state: GameState): GameState => {
     };
 };
 
+const ensureDerivedStats = (state: GameState): GameState => {
+    if (!state?.角色) return state;
+    const maxCarry = computeMaxCarry(state.角色);
+    if (state.角色.最大负重 === maxCarry) return state;
+    return {
+        ...state,
+        角色: {
+            ...state.角色,
+            最大负重: maxCarry
+        }
+    };
+};
+
 export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) => {
     const [gameState, setGameState] = useState<GameState>(() => {
         if (initialState) {
@@ -185,9 +199,9 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             if (typeof initialState.记忆.lastLogIndex !== 'number') {
                 initialState.记忆.lastLogIndex = Math.max(0, initialState.日志.length - 10);
             }
-            return migrateNpcActionsToTracking(initialState);
+            return ensureDerivedStats(migrateNpcActionsToTracking(initialState));
         }
-        return migrateNpcActionsToTracking(createNewGameState("Adventurer", "Male", "Human"));
+        return ensureDerivedStats(migrateNpcActionsToTracking(createNewGameState("Adventurer", "Male", "Human")));
     });
 
     const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -350,7 +364,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             try {
                 const parsed = JSON.parse(raw);
                 const state = parsed.data || parsed;
-                setGameState(state);
+                setGameState(ensureDerivedStats(state));
             } catch(e) { console.error("Load failed", e); }
         }
     };
@@ -411,6 +425,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             nextState.战斗.敌方 = null;
             nextState.战斗.战斗记录 = [];
         }
+        nextState = ensureDerivedStats(nextState);
         return { newState: nextState, logs: systemLogs };
     };
 
@@ -1851,13 +1866,20 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         setGameState(prev => ({ ...prev, 任务: prev.任务.filter(t => t.id !== taskId) }));
     };
 
+    const handleToggleLogPin = (logId: string) => {
+        setGameState(prev => ({
+            ...prev,
+            日志: prev.日志.map(l => l.id === logId ? { ...l, pinned: !l.pinned } : l)
+        }));
+    };
+
     return {
         gameState, setGameState, settings, setSettings,
         commandQueue, pendingCommands, addToQueue, removeFromQueue, currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming, isPhoneProcessing, phoneProcessingThreadId, phoneProcessingScope, draftInput, setDraftInput,
         memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
         handleAIInteraction, stopInteraction, handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleCreatePublicPost, handleCreateThread, handleMarkThreadRead, handleSilentWorldUpdate, handleWaitForPhoneReply, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
         handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask,
-        handleEditPhoneMessage, handleDeletePhoneMessage,
+        handleEditPhoneMessage, handleDeletePhoneMessage, handleToggleLogPin,
         phoneNotifications
     };
 };

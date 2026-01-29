@@ -2,6 +2,7 @@
 import React from 'react';
 import { X, Gem, Archive, Box, Shield, Sword, Beaker, Leaf, Star } from 'lucide-react';
 import { InventoryItem } from '../../../types';
+import { getItemCategory, getTypeLabel, getQualityLabel, normalizeQuality } from '../../../utils/itemUtils';
 
 interface LootModalProps {
   isOpen: boolean;
@@ -14,7 +15,7 @@ export const LootModal: React.FC<LootModalProps> = ({ isOpen, onClose, items, ca
   if (!isOpen) return null;
 
   const getQualityStyle = (quality: string = 'Common') => {
-      switch (quality) {
+      switch (normalizeQuality(quality)) {
           case 'Legendary': return { border: 'border-yellow-500', text: 'text-yellow-400', glow: 'shadow-[0_0_20px_rgba(234,179,8,0.35)]' };
           case 'Epic': return { border: 'border-purple-500', text: 'text-purple-300', glow: 'shadow-[0_0_20px_rgba(168,85,247,0.35)]' };
           case 'Rare': return { border: 'border-cyan-500', text: 'text-cyan-300', glow: 'shadow-[0_0_20px_rgba(34,211,238,0.35)]' };
@@ -23,36 +24,14 @@ export const LootModal: React.FC<LootModalProps> = ({ isOpen, onClose, items, ca
       }
   };
 
-  const getItemIcon = (type: string) => {
-      switch(type) {
-          case 'weapon': return <Sword size={28} />;
-          case 'armor': return <Shield size={28} />;
-          case 'consumable': return <Beaker size={28} />;
-          case 'material': return <Leaf size={28} />;
-          case 'key_item': return <Box size={28} />;
+  const getItemIcon = (itemCategory: string) => {
+      switch(itemCategory) {
+          case 'WEAPON': return <Sword size={28} />;
+          case 'ARMOR': return <Shield size={28} />;
+          case 'CONSUMABLE': return <Beaker size={28} />;
+          case 'MATERIAL': return <Leaf size={28} />;
+          case 'KEY_ITEM': return <Box size={28} />;
           default: return <Gem size={28} />;
-      }
-  };
-
-  const getTypeLabel = (type: string) => {
-      switch (type) {
-          case 'weapon': return '武器';
-          case 'armor': return '防具';
-          case 'consumable': return '消耗品';
-          case 'material': return '材料';
-          case 'key_item': return '关键';
-          case 'loot': return '战利品';
-          default: return type || '未知';
-      }
-  };
-
-  const getQualityLabel = (quality: string = 'Common') => {
-      switch (quality) {
-          case 'Legendary': return '传说';
-          case 'Epic': return '史诗';
-          case 'Rare': return '稀有';
-          case 'Broken': return '破损';
-          default: return '普通';
       }
   };
 
@@ -81,18 +60,19 @@ export const LootModal: React.FC<LootModalProps> = ({ isOpen, onClose, items, ca
         <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-[url('https://www.transparenttextures.com/patterns/dark-leather.png')]">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {items.length > 0 ? items.map((item) => {
-                    const quality = item.品质 || 'Common';
+                    const quality = item.品质 || item.稀有度 || 'Common';
                     const style = getQualityStyle(quality);
                     const durCurrent = item.耐久 ?? null;
                     const durMax = item.最大耐久 ?? null;
                     const durPercent = durCurrent !== null && durMax ? Math.min(100, (durCurrent / durMax) * 100) : null;
+                    const category = getItemCategory(item);
                     return (
                     <div key={item.id} className={`relative bg-[#0c0a09] border-2 ${style.border} p-4 flex flex-col gap-3 hover:bg-[#1c1917] transition-all group ${style.glow}`}>
                         
                         <div className="flex gap-4">
                             {/* Icon Box */}
                             <div className={`w-16 h-16 bg-[#292524] border ${style.border} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${style.text}`}>
-                                 {getItemIcon(item.类型)}
+                                 {getItemIcon(category)}
                             </div>
                             
                             <div className="flex-1 min-w-0">

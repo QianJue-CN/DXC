@@ -11,7 +11,8 @@ import {
     P_JUDGMENT_EASY, P_JUDGMENT_NORMAL, P_JUDGMENT_HARD, P_JUDGMENT_HELL,
     P_ACTION_OPTIONS, P_FAMILIA_JOIN, P_STORY_GUIDE,
     P_PHONE_SYSTEM, P_PHONE_COT,
-    P_SYS_FORMAT_MULTI, P_COT_LOGIC_MULTI
+    P_SYS_FORMAT_MULTI, P_COT_LOGIC_MULTI,
+    P_SYS_COMMANDS, P_SYS_GLOSSARY
 } from "../prompts";
 import { Difficulty } from "../types/enums";
 
@@ -21,9 +22,11 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     // 【系统设定】
     { id: 'sys_format', name: '1. 输出格式', group: '系统设定', usage: 'CORE', isActive: true, content: P_SYS_FORMAT, order: 1 },
     { id: 'sys_format_multi', name: '1. 输出格式(多重思考)', group: '系统设定', usage: 'CORE', isActive: true, content: P_SYS_FORMAT_MULTI, order: 1 },
-    { id: 'sys_core', name: '2. 核心规则', group: '系统设定', usage: 'CORE', isActive: true, content: P_SYS_CORE, order: 2 },
-    { id: 'sys_data_struct', name: '3. 数据格式', group: '系统设定', usage: 'CORE', isActive: true, content: P_DATA_STRUCT, order: 3 },
-    { id: 'sys_writing', name: '4. 写作要求', group: '系统设定', usage: 'CORE', isActive: true, content: P_WRITING_REQ, order: 4 },
+    { id: 'sys_glossary', name: '2. 术语边界', group: '系统设定', usage: 'CORE', isActive: true, content: P_SYS_GLOSSARY, order: 2 },
+    { id: 'sys_commands', name: '3. 指令场景与示例', group: '系统设定', usage: 'CORE', isActive: true, content: P_SYS_COMMANDS, order: 3 },
+    { id: 'sys_core', name: '4. 核心规则', group: '系统设定', usage: 'CORE', isActive: true, content: P_SYS_CORE, order: 4 },
+    { id: 'sys_data_struct', name: '5. 数据格式', group: '系统设定', usage: 'CORE', isActive: true, content: P_DATA_STRUCT, order: 5 },
+    { id: 'sys_writing', name: '6. 写作要求', group: '系统设定', usage: 'CORE', isActive: true, content: P_WRITING_REQ, order: 6 },
     
     // 【世界观设定】
     { id: 'world_foundation', name: '0. 神时代与眷族契约', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_FOUNDATION, order: 18 },

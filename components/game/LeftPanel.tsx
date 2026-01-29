@@ -171,7 +171,7 @@ export const LeftPanel: React.FC<LeftPanelProps> = ({ stats, className = '', isH
               {!showPhysiology && (
                   <VitalBar label="HP 生命" current={stats.生命值} max={stats.最大生命值} color="bg-green-600" icon={<Heart size={10} />} />
               )}
-              <VitalBar label="MP 精神" current={stats.精神力} max={stats.最大精神力} color="bg-purple-600" icon={<Zap size={10} />} />
+              <VitalBar label="MP 精神" current={stats.精神力} max={stats.最大精神力} color="bg-cyan-600" icon={<Zap size={10} />} />
               <VitalBar label="SP 体力" current={stats.体力} max={stats.最大体力} color="bg-yellow-600" icon={<Battery size={10} />} />
               
               {/* Physiology (Normal+) */}

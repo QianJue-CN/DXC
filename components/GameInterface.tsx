@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { GameState, Difficulty, InventoryItem } from '../types';
+import { GameState, Difficulty, InventoryItem, Confidant } from '../types';
 import { TopNav } from './game/TopNav';
 import { LeftPanel } from './game/LeftPanel';
 import { CenterPanel } from './game/CenterPanel';
@@ -32,13 +32,39 @@ import { MapModal } from './game/modals/MapModal';
 import { MemoryModal } from './game/modals/MemoryModal';
 import { DynamicWorldModal } from './game/modals/DynamicWorldModal';
 import { MemorySummaryModal } from './game/modals/MemorySummaryModal';
+import { NotesModal } from './game/modals/NotesModal';
 
 import { useGameLogic } from '../hooks/useGameLogic';
+import { buildPreviewState } from '../utils/previewState';
+import { getDefaultEquipSlot } from '../utils/itemUtils';
+import { computeInventoryWeight, computeMaxCarry } from '../utils/characterMath';
 
 interface GameInterfaceProps {
     onExit: () => void;
     initialState?: GameState;
 }
+
+type ActiveModal =
+    | 'INVENTORY'
+    | 'EQUIPMENT'
+    | 'SETTINGS'
+    | 'SOCIAL'
+    | 'PHONE'
+    | 'TASKS'
+    | 'SKILLS'
+    | 'STORY'
+    | 'CONTRACT'
+    | 'LOOT'
+    | 'LOOT_VAULT'
+    | 'FAMILIA'
+    | 'PRESENT'
+    | 'PARTY'
+    | 'MAP'
+    | 'MEMORY'
+    | 'WORLD'
+    | 'SAVE_MANAGER'
+    | 'NOTES'
+    | null;
 
 export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialState }) => {
   const {
@@ -52,11 +78,12 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
       stopInteraction, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite,
       manualSave, loadGame, handleReroll, handleDeleteTask,
       handleEditPhoneMessage, handleDeletePhoneMessage,
-      phoneNotifications
+      phoneNotifications,
+      handleToggleLogPin
   } = useGameLogic(initialState, onExit);
 
   // Modal States
-  const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [mobileActiveTab, setMobileActiveTab] = useState<'CHAT' | 'CHAR' | 'INV' | 'MAP' | 'MENU'>('CHAT');
   const [settingsView, setSettingsView] = useState<string>('MAIN');
 
@@ -67,13 +94,13 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
   };
 
   // Helper to handle commands that need to update state directly (like equipping)
-  const handleUpdateConfidant = (id: string, updates: any) => {
+  const handleUpdateConfidant = (id: string, updates: Partial<Confidant>) => {
       const newConfidants = gameState.社交.map(c => c.id === id ? { ...c, ...updates } : c);
       setGameState({ ...gameState, 社交: newConfidants });
   };
 
   const queueEquipItem = (item: InventoryItem) => {
-      const slotKey = item.装备槽位 || (item.类型 === 'weapon' ? '主手' : '身体');
+      const slotKey = getDefaultEquipSlot(item);
       addToQueue(`装备物品: ${item.名称}`, undefined, `equip_${slotKey}`, {
           kind: 'EQUIP',
           slotKey,
@@ -108,69 +135,58 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
   const hasMagicPhone = (gameState.背包 || []).some(item => item.名称 === '魔石通讯终端');
   const activeCommands = isProcessing ? pendingCommands : commandQueue;
 
-  const previewState = useMemo(() => {
-      if (!activeCommands || activeCommands.length === 0) return gameState;
+  const previewState = useMemo(
+      () => buildPreviewState(gameState, activeCommands as any),
+      [gameState, activeCommands]
+  );
 
-      const next = {
-          ...gameState,
-          角色: { ...gameState.角色, 装备: { ...(gameState.角色?.装备 || {}) } },
-          背包: Array.isArray(gameState.背包) ? gameState.背包.map(item => ({ ...item })) : []
-      };
+  const activeTaskCount = (gameState.任务 || []).filter(t => t.状态 === 'active').length;
+  const unreadPhoneCount = (gameState.手机?.对话
+      ? [...(gameState.手机?.对话?.私聊 || []), ...(gameState.手机?.对话?.群聊 || []), ...(gameState.手机?.对话?.公共频道 || [])]
+            .reduce((sum, t) => sum + (t.未读 || 0), 0)
+      : 0);
+  const partyCount = (gameState.社交 || []).filter(c => c.是否队友).length + 1;
+  const presentCount = (gameState.社交 || []).filter(c => c.是否在场).length;
+  const inventoryWeight = computeInventoryWeight(previewState.背包 || []);
+  const maxCarry = computeMaxCarry(previewState.角色);
+  const lootCount = (gameState.公共战利品?.length || 0) + (gameState.战利品?.length || 0);
 
-      const findItemIndex = (itemId?: string, itemName?: string) => {
-          if (itemId) {
-              const idx = next.背包.findIndex(i => i.id === itemId);
-              if (idx >= 0) return idx;
-          }
-          if (itemName) return next.背包.findIndex(i => i.名称 === itemName);
-          return -1;
-      };
-
-      const resolveSlotKey = (cmd: any, item?: any) => {
-          if (cmd.slotKey) return cmd.slotKey;
-          if (item?.装备槽位) return item.装备槽位;
-          if (item?.类型 === 'weapon') return '主手';
-          if (item?.类型 === 'armor') return '身体';
-          return '';
-      };
-
-      activeCommands.forEach((cmd: any) => {
-          if (cmd.kind === 'EQUIP') {
-              const idx = findItemIndex(cmd.itemId, cmd.itemName);
-              const item = idx >= 0 ? next.背包[idx] : null;
-              const slotKey = resolveSlotKey(cmd, item);
-              if (slotKey) {
-                  next.角色.装备[slotKey] = cmd.itemName || item?.名称 || next.角色.装备[slotKey];
-              }
-              if (item) {
-                  item.已装备 = true;
-                  if (slotKey) item.装备槽位 = slotKey;
-              }
-          } else if (cmd.kind === 'UNEQUIP') {
-              const slotKey = cmd.slotKey;
-              if (slotKey) next.角色.装备[slotKey] = '';
-              const idx = findItemIndex(cmd.itemId, cmd.itemName);
-              const item = idx >= 0 ? next.背包[idx] : null;
-              if (item) {
-                  item.已装备 = false;
-                  item.装备槽位 = undefined;
-              }
-          } else if (cmd.kind === 'USE') {
-              const idx = findItemIndex(cmd.itemId, cmd.itemName);
-              if (idx >= 0) {
-                  const item = next.背包[idx];
-                  const nextQty = (item.数量 || 1) - (cmd.quantity || 1);
-                  if (nextQty <= 0) next.背包.splice(idx, 1);
-                  else item.数量 = nextQty;
-              }
-          }
-      });
-
-      return next;
-  }, [gameState, activeCommands]);
+  const centerPanelProps = {
+      logs: gameState.日志,
+      combatState: gameState.战斗,
+      playerStats: previewState.角色,
+      skills: gameState.角色.技能,
+      magic: gameState.角色.魔法,
+      inventory: previewState.背包,
+      confidants: gameState.社交,
+      onSendMessage: handlePlayerInput,
+      onReroll: handleReroll,
+      lastRawResponse: lastAIResponse,
+      lastThinking: lastAIThinking,
+      onPlayerAction: handlePlayerAction,
+      isProcessing,
+      isStreaming,
+      commandQueue: activeCommands,
+      onRemoveCommand: isProcessing ? undefined : removeFromQueue,
+      onEditLog: handleEditLog,
+      onDeleteLog: handleDeleteLog,
+      onEditUserLog: handleEditUserLog,
+      onUpdateLogText: handleUpdateLogText,
+      handleUserRewrite: handleUserRewrite,
+      onStopInteraction: stopInteraction,
+      draftInput,
+      setDraftInput,
+      actionOptions: currentOptions,
+      fontSize: settings.fontSize,
+      chatLogLimit: settings.chatLogLimit ?? 30,
+      enableCombatUI: settings.enableCombatUI,
+      isHellMode,
+      onToggleLogPin: handleToggleLogPin
+  };
 
   return (
     <div 
+        data-theme={isHellMode ? 'hell' : 'default'}
         className="w-full h-dvh flex flex-col bg-zinc-950 overflow-hidden relative" 
         style={{ backgroundImage: settings.backgroundImage ? `url(${settings.backgroundImage})` : "url('https://www.transparenttextures.com/patterns/carbon-fibre.png')" }}
     >
@@ -198,39 +214,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                 <div className="contents animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <LeftPanel stats={previewState.角色} isHellMode={isHellMode} difficulty={gameState.游戏难度} />
                     
-                    <CenterPanel 
-                        logs={gameState.日志} 
-                        combatState={gameState.战斗}
-                        playerStats={previewState.角色}
-                        skills={gameState.角色.技能}
-                        magic={gameState.角色.魔法}
-                        inventory={previewState.背包} 
-                        confidants={gameState.社交} 
-                        onSendMessage={handlePlayerInput}
-                        onReroll={handleReroll}
-                        lastRawResponse={lastAIResponse}
-                        lastThinking={lastAIThinking}
-                        onPlayerAction={handlePlayerAction}
-                        isProcessing={isProcessing}
-                        isStreaming={isStreaming}
-                        commandQueue={activeCommands}
-                        onRemoveCommand={isProcessing ? undefined : removeFromQueue}
-                        
-                        onEditLog={handleEditLog}
-                        onDeleteLog={handleDeleteLog}
-                        onEditUserLog={handleEditUserLog}
-                        onUpdateLogText={handleUpdateLogText}
-                        handleUserRewrite={handleUserRewrite}
-                        onStopInteraction={stopInteraction}
-                        draftInput={draftInput}
-                        setDraftInput={setDraftInput}
-
-                        actionOptions={currentOptions}
-                        fontSize={settings.fontSize}
-                        chatLogLimit={settings.chatLogLimit ?? 30}
-                        enableCombatUI={settings.enableCombatUI} 
-                        isHellMode={isHellMode}
-                    />
+                    <CenterPanel {...centerPanelProps} />
 
                     <RightPanel 
                         onOpenInventory={() => setActiveModal('INVENTORY')}
@@ -255,6 +239,16 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         hasPhone={hasMagicPhone}
                         phoneProcessing={isPhoneProcessing}
                         phoneProcessingScope={phoneProcessingScope}
+                        summary={{
+                            activeTasks: activeTaskCount,
+                            unreadMessages: unreadPhoneCount,
+                            partySize: partyCount,
+                            presentCount,
+                            inventoryWeight: Math.round(inventoryWeight * 10) / 10,
+                            maxCarry: Math.round(maxCarry * 10) / 10,
+                            lootCount
+                        }}
+                        onOpenNotes={() => setActiveModal('NOTES')}
                     />
                 </div>
             </div>
@@ -273,38 +267,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             />
             <div className="flex-1 relative overflow-hidden w-full">
                  {mobileActiveTab === 'CHAT' && (
-                     <CenterPanel 
-                        logs={gameState.日志} 
-                        combatState={gameState.战斗}
-                        playerStats={previewState.角色}
-                        skills={gameState.角色.技能}
-                        magic={gameState.角色.魔法}
-                        inventory={previewState.背包}
-                        confidants={gameState.社交} 
-                        onSendMessage={handlePlayerInput}
-                        onReroll={handleReroll}
-                        lastRawResponse={lastAIResponse}
-                        lastThinking={lastAIThinking}
-                        onPlayerAction={handlePlayerAction}
-                        isProcessing={isProcessing}
-                        isStreaming={isStreaming}
-                        commandQueue={activeCommands}
-                        onRemoveCommand={isProcessing ? undefined : removeFromQueue}
-                        onEditLog={handleEditLog}
-                        onDeleteLog={handleDeleteLog}
-                        onEditUserLog={handleEditUserLog}
-                        onUpdateLogText={handleUpdateLogText}
-                        handleUserRewrite={handleUserRewrite}
-                        onStopInteraction={stopInteraction}
-                        draftInput={draftInput}
-                        setDraftInput={setDraftInput}
-                        actionOptions={currentOptions}
-                        fontSize={settings.fontSize}
-                        chatLogLimit={settings.chatLogLimit ?? 30}
-                        className="border-none w-full"
-                        enableCombatUI={settings.enableCombatUI}
-                        isHellMode={isHellMode}
-                    />
+                     <CenterPanel {...centerPanelProps} className="border-none w-full" />
                  )}
                  {mobileActiveTab === 'INV' && (
                      <MobileInventoryView 
@@ -351,6 +314,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                             onOpenMemory: () => setActiveModal('MEMORY'),
                             onOpenPresent: () => setActiveModal('PRESENT'),
                             onOpenParty: () => setActiveModal('PARTY'),
+                            onOpenNotes: () => setActiveModal('NOTES'),
                         }}
                      />
                  )}
@@ -483,6 +447,13 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             memory={gameState.记忆}
             logs={gameState.日志}
             onUpdateMemory={(mem) => setGameState({...gameState, 记忆: mem})} 
+        />
+
+        <NotesModal
+            isOpen={activeModal === 'NOTES'}
+            onClose={closeModal}
+            notes={gameState.笔记}
+            onUpdateNotes={(notes) => setGameState(prev => ({ ...prev, 笔记: notes }))}
         />
 
         <DynamicWorldModal 

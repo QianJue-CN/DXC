@@ -1,6 +1,7 @@
-
+﻿
 import { GameState, RawGameData, Screen, Difficulty, InventoryItem, BodyParts, PhoneThread, PhonePost, Task, PhoneState, PhoneMessage } from "../types";
 import { generateDanMachiMap } from "./mapSystem";
+import { computeMaxCarry } from './characterMath';
 
 export const createNewGameState = (
     name: string, 
@@ -368,7 +369,7 @@ export const createNewGameState = (
         待发送: []
     };
 
-    return {
+    const state: GameState = {
         当前界面: Screen.GAME,
         游戏难度: difficulty,
         处理中: false,
@@ -410,7 +411,8 @@ export const createNewGameState = (
             魔法: [],
             诅咒: [],
             装备: { ...startEquipment },
-            状态: []
+            状态: [],
+            最大负重: 0
         },
         日志: [
             { id: 'Log_Intro', text: introText, sender: '旁白', timestamp: Date.now() + 100, turnIndex: 0 }
@@ -482,16 +484,25 @@ export const createNewGameState = (
         },
         契约: [],
         眷族: { 名称: "无", 等级: "I", 主神: "None", 资金: 0, 声望: 50, 设施状态: {}, 仓库: [] },
+        笔记: [],
         记忆: { lastLogIndex: 0, instant: [], shortTerm: [], mediumTerm: [], longTerm: [] },
         战斗: { 是否战斗中: false, 敌方: null, 战斗记录: [] },
         回合数: 1
     };
+    state.角色.最大负重 = computeMaxCarry(state.角色);
+    return state;
 };
 
 export const mapRawDataToGameState = (raw: RawGameData): GameState => {
    const data = raw as GameState;
    if (!data.眷族) {
        data.眷族 = { 名称: "无", 等级: "I", 主神: "None", 资金: 0, 声望: 0, 设施状态: {}, 仓库: [] };
+   }
+    if (data?.角色) {
+        data.角色.最大负重 = computeMaxCarry(data.角色);
+    }
+   if (!Array.isArray((data as any).笔记)) {
+       (data as any).笔记 = [];
    }
    if (typeof (data.眷族 as any).声望 !== 'number') {
        const legacy = (data as any).世界?.眷族声望;
@@ -503,3 +514,4 @@ export const mapRawDataToGameState = (raw: RawGameData): GameState => {
    }
    return data;
 };
+

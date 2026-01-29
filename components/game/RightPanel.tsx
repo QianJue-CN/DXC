@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Briefcase, Users, ClipboardList, Zap, Settings, Navigation, Smartphone, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive, Loader2 } from 'lucide-react';
+import { Briefcase, Users, ClipboardList, Zap, Settings, Navigation, Smartphone, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive, Loader2, StickyNote, Scale, Bell } from 'lucide-react';
 import { MenuButton } from './right/MenuButton';
 
 interface RightPanelProps {
@@ -20,12 +20,22 @@ interface RightPanelProps {
     onOpenLootVault: () => void;
     onOpenSaveManager: () => void;
     onOpenMemory: () => void;
+    onOpenNotes: () => void;
     onOpenPresent?: () => void;
     onOpenParty?: () => void;
     isHellMode?: boolean;
     hasPhone?: boolean;
     phoneProcessing?: boolean;
     phoneProcessingScope?: 'chat' | 'moment' | 'forum' | 'sync' | null;
+    summary?: {
+        activeTasks: number;
+        unreadMessages: number;
+        partySize: number;
+        presentCount: number;
+        inventoryWeight?: number;
+        maxCarry?: number;
+        lootCount?: number;
+    };
 }
 
 export const RightPanel: React.FC<RightPanelProps> = ({ 
@@ -45,12 +55,14 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     onOpenLootVault,
     onOpenSaveManager,
     onOpenMemory,
+    onOpenNotes,
     onOpenPresent,
     onOpenParty,
     isHellMode,
     hasPhone = true,
     phoneProcessing = false,
-    phoneProcessingScope = null
+    phoneProcessingScope = null,
+    summary
 }) => {
   // Theme Overrides
   const bgTexture = isHellMode ? 'bg-red-900/10' : 'bg-halftone-blue opacity-10';
@@ -69,6 +81,50 @@ export const RightPanel: React.FC<RightPanelProps> = ({
         {/* Background Decor */}
         <div className={`absolute top-0 right-0 w-full h-full ${bgTexture} pointer-events-none`} />
         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black to-transparent pointer-events-none" />
+
+        {summary && (
+            <div className="relative z-10 bg-black/80 border border-zinc-700 p-3 mt-2 shadow-lg">
+                <div className="text-[10px] uppercase tracking-widest text-zinc-400 mb-2">战术摘要</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-zinc-300">
+                        <ClipboardList size={12} className="text-amber-400" />
+                        <span>任务</span>
+                        <span className="ml-auto text-white">{summary.activeTasks}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-300">
+                        <Bell size={12} className="text-cyan-400" />
+                        <span>未读</span>
+                        <span className="ml-auto text-white">{summary.unreadMessages}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-300">
+                        <Users size={12} className="text-indigo-400" />
+                        <span>队伍</span>
+                        <span className="ml-auto text-white">{summary.partySize}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-300">
+                        <Radar size={12} className="text-emerald-400" />
+                        <span>在场</span>
+                        <span className="ml-auto text-white">{summary.presentCount}</span>
+                    </div>
+                    {typeof summary.inventoryWeight === 'number' && (
+                        <div className="flex items-center gap-2 text-zinc-300 col-span-2">
+                            <Scale size={12} className="text-orange-400" />
+                            <span>负重</span>
+                            <span className={`ml-auto ${summary.maxCarry !== undefined && summary.inventoryWeight > summary.maxCarry ? 'text-red-400' : 'text-white'}`}>
+                                {summary.inventoryWeight} / {summary.maxCarry ?? '--'} kg
+                            </span>
+                        </div>
+                    )}
+                    {typeof summary.lootCount === 'number' && (
+                        <div className="flex items-center gap-2 text-zinc-300 col-span-2">
+                            <Gem size={12} className="text-yellow-400" />
+                            <span>战利品</span>
+                            <span className="ml-auto text-white">{summary.lootCount}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
 
         {/* Scrollable Area for Buttons */}
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mt-4 pb-4 space-y-2">
@@ -142,8 +198,16 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 icon={<Brain className="w-5 h-5 lg:w-5 lg:h-5" />} 
                 delay={225} 
                 colorClass="bg-zinc-800"
-                hoverColorClass="group-hover:bg-purple-600 group-hover:border-white"
+                hoverColorClass="group-hover:bg-emerald-600 group-hover:border-white"
                 onClick={onOpenMemory}
+            />
+            <MenuButton
+                label="笔记"
+                icon={<StickyNote className="w-5 h-5 lg:w-5 lg:h-5" />}
+                delay={235}
+                colorClass="bg-zinc-800"
+                hoverColorClass="group-hover:bg-cyan-600 group-hover:border-white"
+                onClick={onOpenNotes}
             />
             <MenuButton 
                 label="手机" 
@@ -185,7 +249,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 icon={<ClipboardList className="w-5 h-5 lg:w-5 lg:h-5" />} 
                 delay={450} 
                 colorClass="bg-zinc-800"
-                hoverColorClass="group-hover:bg-purple-500 group-hover:border-white"
+                hoverColorClass="group-hover:bg-amber-500 group-hover:border-white"
                 onClick={onOpenTasks}
             />
             <MenuButton 

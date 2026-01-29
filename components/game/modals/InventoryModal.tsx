@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, Package, Shield, Sword, Box, Gem, ArrowRightCircle, LogOut, Beaker, Leaf, Wrench, AlertTriangle, Zap, Star, Search, Moon } from 'lucide-react';
 import { InventoryItem } from '../../../types';
+import { getItemCategory, getDefaultEquipSlot, getTypeLabel, normalizeQuality, getQualityLabel, isWeaponItem, isArmorItem } from '../../../utils/itemUtils';
 
 interface InventoryModalProps {
   isOpen: boolean;
@@ -60,13 +61,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       'CONSUMABLE': '消耗品 ITEM',
       'MATERIAL': '素材 MAT',
       'KEY_ITEM': '重要 KEY',
-      'LOOT': '掉落 LOOT'
+      'LOOT': '掉落 LOOT',
+      'OTHER': '杂项 OTHER'
   };
 
   const categories = useMemo(() => {
       const cats = new Set<string>(['ALL']);
       allItems.forEach(item => {
-          if (item.类型) cats.add(item.类型.toUpperCase());
+          cats.add(getItemCategory(item));
       });
       return Array.from(cats);
   }, [allItems]);
@@ -84,7 +86,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const filteredItems = useMemo(() => {
       let filtered = allItems;
       if (activeTab !== 'ALL') {
-          filtered = allItems.filter(i => i.类型.toUpperCase() === activeTab);
+          filtered = allItems.filter(i => getItemCategory(i) === activeTab);
       }
       return filtered.sort((a, b) => {
           if (a.已装备 !== b.已装备) return a.已装备 ? -1 : 1;
@@ -101,24 +103,24 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   };
 
   const handleUnequipClick = (item: InventoryItem) => {
-      const slot = item.装备槽位 || (item.类型 === 'weapon' ? '主手' : '身体');
+      const slot = getDefaultEquipSlot(item);
       onUnequipItem(slot, item.名称, item.id);
   };
 
-  const getItemIcon = (type: string) => {
-      switch(type) {
-          case 'weapon': return <Sword size={28} />;
-          case 'armor': return <Shield size={28} />;
-          case 'loot': return <Gem size={28} />;
-          case 'consumable': return <Beaker size={28} />;
-          case 'material': return <Leaf size={28} />;
-          case 'key_item': return <Box size={28} />;
+  const getItemIcon = (item: InventoryItem) => {
+      switch(getItemCategory(item)) {
+          case 'WEAPON': return <Sword size={28} />;
+          case 'ARMOR': return <Shield size={28} />;
+          case 'LOOT': return <Gem size={28} />;
+          case 'CONSUMABLE': return <Beaker size={28} />;
+          case 'MATERIAL': return <Leaf size={28} />;
+          case 'KEY_ITEM': return <Box size={28} />;
           default: return <Package size={28} />;
       }
   };
 
   const getRarityConfig = (quality: string = 'Common') => {
-      switch(quality) {
+      switch(normalizeQuality(quality)) {
           case 'Legendary': return { border: 'border-yellow-400', text: 'text-yellow-400', bg: 'bg-yellow-900/40', shadow: 'shadow-yellow-500/50' };
           case 'Epic': return { border: 'border-purple-400', text: 'text-purple-300', bg: 'bg-purple-900/40', shadow: 'shadow-purple-500/50' };
           case 'Rare': return { border: 'border-cyan-400', text: 'text-cyan-300', bg: 'bg-cyan-900/40', shadow: 'shadow-cyan-500/50' };
@@ -185,7 +187,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         <div className="flex-1 relative z-10 overflow-y-auto custom-scrollbar p-4 md:p-8 bg-black/50">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-12">
                 {filteredItems.length > 0 ? filteredItems.map((item) => {
-                    const quality = item.品质 || 'Common';
+                    const quality = item.品质 || item.稀有度 || 'Common';
+                    const qualityLabel = getQualityLabel(quality);
                     const style = getRarityConfig(quality);
                     const isHovered = hoveredItem === item.id;
 
@@ -208,12 +211,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                             <div className={`absolute top-0 right-0 p-1 px-2 text-[10px] font-bold uppercase tracking-widest border-l-2 border-b-2
                                 ${item.已装备 ? 'bg-cyan-900 border-cyan-500 text-cyan-200' : `bg-black ${style.border} ${style.text}`}
                             `}>
-                                {item.已装备 ? 'EQUIPPED' : quality}
+                                {item.已装备 ? 'EQUIPPED' : qualityLabel}
                             </div>
 
                             <div className="p-4 flex gap-4 items-start">
                                 <div className={`w-14 h-14 shrink-0 flex items-center justify-center border-2 bg-black/80 ${style.border} ${style.text} group-hover:bg-blue-900/20 group-hover:text-cyan-300 transition-colors`}>
-                                    {getItemIcon(item.类型)}
+                                    {getItemIcon(item)}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className={`font-display text-xl uppercase tracking-wide truncate ${style.text} ${isBroken ? 'line-through opacity-50' : ''} group-hover:text-white transition-colors`}>
@@ -223,7 +226,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                         <span className="text-[10px] font-mono bg-black/50 px-1.5 py-0.5 border border-zinc-700 text-zinc-400 group-hover:border-blue-500 group-hover:text-blue-300 transition-colors">
                                             x{item.数量}
                                         </span>
-                                        <span className="text-[10px] font-mono uppercase text-zinc-500">{item.类型}</span>
+                                        <span className="text-[10px] font-mono uppercase text-zinc-500">{getTypeLabel(item.类型)}</span>
                                         {item.魔剑 && (
                                             <span className="text-[9px] font-mono uppercase text-purple-300 border border-purple-700/60 px-1.5 py-0.5">
                                                 魔剑
@@ -276,14 +279,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                                 <p className="text-xs text-cyan-100 text-center italic mb-2 line-clamp-3 font-serif">"{item.描述}"</p>
                                 
                                 <div className="flex gap-2 w-full">
-                                    {(item.类型 === 'weapon' || item.类型 === 'armor') && (
+                                    {(isWeaponItem(item) || isArmorItem(item)) && (
                                         item.已装备 ? (
                                             <ActionButton onClick={() => handleUnequipClick(item)} label="卸下" color="yellow" icon={<LogOut size={14}/>} />
                                         ) : (
                                             <ActionButton onClick={() => handleEquipClick(item)} label="装备" color="cyan" icon={<Shield size={14}/>} />
                                         )
                                     )}
-                                    {item.类型 === 'consumable' && (
+                                    {getItemCategory(item) === 'CONSUMABLE' && (
                                         <ActionButton onClick={() => handleUseItem(item)} label="使用" color="green" icon={<ArrowRightCircle size={14}/>} />
                                     )}
                                 </div>

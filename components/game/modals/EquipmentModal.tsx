@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Shield, Sword, User, AlertCircle, Gem, ChevronRight, Star } from 'lucide-react';
 import { InventoryItem } from '../../../types';
+import { getQualityLabel, getTypeLabel, isWeaponItem, isArmorItem } from '../../../utils/itemUtils';
 
 interface EquipmentModalProps {
   isOpen: boolean;
@@ -53,28 +54,8 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
       return { item: null, label: '' };
   }, [activeSlot, equipment, inventory]);
 
-  const getQualityLabel = (quality?: string) => {
-      switch (quality) {
-          case 'Legendary': return '传说';
-          case 'Epic': return '史诗';
-          case 'Rare': return '稀有';
-          case 'Common': return '普通';
-          case 'Broken': return '破损';
-          default: return quality || '普通';
-      }
-  };
-
-  const getTypeLabel = (type?: string) => {
-      switch (type) {
-          case 'weapon': return '武器';
-          case 'armor': return '防具';
-          case 'consumable': return '消耗品';
-          case 'material': return '材料';
-          case 'key_item': return '关键';
-          case 'loot': return '战利品';
-          default: return type || '未知';
-      }
-  };
+  const getQualityLabelSafe = (quality?: string) => getQualityLabel(quality);
+  const getTypeLabelSafe = (type?: string) => getTypeLabel(type);
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-200">
@@ -146,7 +127,11 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
                 <div className="bg-black/60 border border-zinc-800 p-5 space-y-4">
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 bg-zinc-900 border border-blue-900 flex items-center justify-center text-blue-400">
-                            {slotItem.item?.类型 === 'weapon' ? <Sword size={32} /> : slotItem.item?.类型 === 'armor' ? <Shield size={32} /> : <Gem size={32} />}
+                            {slotItem.item && isWeaponItem(slotItem.item)
+                                ? <Sword size={32} />
+                                : slotItem.item && isArmorItem(slotItem.item)
+                                    ? <Shield size={32} />
+                                    : <Gem size={32} />}
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="text-[10px] uppercase text-zinc-500 tracking-widest">装备名称</div>
@@ -155,8 +140,8 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({
                             </div>
                             {slotItem.item && (
                                 <div className="flex flex-wrap gap-2 text-[10px] text-zinc-400 mt-2">
-                                    <span className="border border-zinc-700 px-2 py-0.5">类型: {getTypeLabel(slotItem.item.类型)}</span>
-                                    <span className="border border-zinc-700 px-2 py-0.5">品质: {getQualityLabel(slotItem.item.品质)}</span>
+                                    <span className="border border-zinc-700 px-2 py-0.5">类型: {getTypeLabelSafe(slotItem.item.类型)}</span>
+                                    <span className="border border-zinc-700 px-2 py-0.5">品质: {getQualityLabelSafe(slotItem.item.品质 || slotItem.item.稀有度)}</span>
                                     {slotItem.item.等级需求 !== undefined && (
                                         <span className="border border-zinc-700 px-2 py-0.5">需求等级: {slotItem.item.等级需求}</span>
                                     )}

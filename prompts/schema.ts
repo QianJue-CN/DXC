@@ -1,4 +1,4 @@
-export const P_DATA_STRUCT = `<数据结构定义>
+﻿export const P_DATA_STRUCT = `<数据结构定义>
 # 【数据结构定义】DanMachi SaveData (V3.1 Chinese Native)
 
 > 本文档定义了游戏状态树的**完整**结构。AI 在生成 \`tavern_commands\` 时必须**严格遵守**此路径和字段定义。
@@ -65,6 +65,7 @@ export const P_DATA_STRUCT = `<数据结构定义>
 - \`gameState.角色.伟业\`: Number (Feats)
 - \`gameState.角色.升级所需伟业\`: Number
 - \`gameState.角色.疲劳度\`: Number (0-100)
+- \`gameState.角色.最大负重\`: Number (kg)
 - \`gameState.角色.公会评级\`: String ("I" 到 "S")
 
 **技能与魔法**
@@ -96,9 +97,9 @@ export const P_DATA_STRUCT = `<数据结构定义>
 - \`名称\`: String
 - \`描述\`: String
 - \`数量\`: Number
-- \`类型\`: String ("consumable" | "weapon" | "armor" | "material" | "key_item" | "loot")
+- \`类型\`: String ("consumable" | "weapon" | "armor" | "material" | "key_item" | "loot" | "消耗品" | "武器" | "防具" | "材料" | "关键物品" | "战利品")
 - \`获取途径\`: String ("dungeon" | "public")
-- \`品质\`: String ("Broken" | "Common" | "Rare" | "Epic" | "Legendary")
+- \`品质\`: String ("Broken" | "Common" | "Rare" | "Epic" | "Legendary" | "破损" | "普通" | "精良" | "稀有" | "史诗" | "传说" | "神话")
 - \`标签\`: String[] | String
 - \`来源\`: String
 - \`制作者\`: String
@@ -238,7 +239,28 @@ export const P_DATA_STRUCT = `<数据结构定义>
 - \`gameState.眷族.声望\`: Number
 - \`gameState.眷族.设施状态\`: Object
 - \`gameState.眷族.仓库\`: Array<InventoryItem>
+
+## 14. 情报笔记 (gameState.笔记)
+- \`gameState.笔记\`: Array<NoteEntry>
+  - \`id\`: String (唯一ID "Note_...")
+  - \`标题\`: String
+  - \`内容\`: String
+  - \`标签\`: String[] (可选)
+  - \`时间戳\`: String (创建时间)
+  - \`更新时间\`: String (可选)
+  - \`重要\`: Boolean (可选)
 </数据结构定义>`;
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -133,6 +133,7 @@ export interface CharacterStats {
   疲劳度: number; 
   公会评级: string;
   魔法栏位?: MagicSlotState;
+  最大负重?: number;
   
   // Falna Basic Abilities (0-999+)
   能力值: {
