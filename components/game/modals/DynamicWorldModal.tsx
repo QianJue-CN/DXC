@@ -38,7 +38,6 @@ export const DynamicWorldModal: React.FC<DynamicWorldModalProps> = ({
 
   const safeWorldState = worldState || {
       异常指数: 0,
-      眷族声望: 50,
       头条新闻: [],
       街头传闻: [],
       诸神神会: {
@@ -263,15 +262,7 @@ const DenatusPanel = ({ world }: { world: WorldState }) => (
             </div>
         </div>
 
-        <div className="bg-[#020617] p-6 border border-zinc-800">
-            <h4 className="text-purple-400 font-bold uppercase mb-3 text-sm">眷族声望</h4>
-            <div className="flex items-center gap-4">
-                <div className="text-4xl font-display text-white">{world.眷族声望}</div>
-                <div className="flex-1 h-2 bg-zinc-900 rounded-full overflow-hidden">
-                    <div className="h-full bg-purple-600" style={{ width: `${Math.min(100, world.眷族声望 / 100)}%` }} />
-                </div>
-            </div>
-        </div>
+        <div className="text-zinc-500 text-xs italic">神会声望结论请前往“眷族”面板查看。</div>
     </div>
 );
 

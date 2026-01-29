@@ -201,7 +201,6 @@ export const P_DATA_STRUCT = `<数据结构定义>
 
 ## 9. 世界动态 (gameState.世界)
 - \`gameState.世界.异常指数\`: Number (0-100)
-- \`gameState.世界.眷族声望\`: Number
 - \`gameState.世界.头条新闻\`: String[]
 - \`gameState.世界.街头传闻\`: Array<{ "主题": String, "传播度": Number }>
 - \`gameState.世界.诸神神会\`: { "下次神会开启时间": String, "神会主题": String, "讨论内容": Array<{ "角色": String, "对话": String }>, "最终结果": String }
@@ -236,6 +235,7 @@ export const P_DATA_STRUCT = `<数据结构定义>
 - \`gameState.眷族.等级\`: String
 - \`gameState.眷族.主神\`: String
 - \`gameState.眷族.资金\`: Number
+- \`gameState.眷族.声望\`: Number
 - \`gameState.眷族.设施状态\`: Object
 - \`gameState.眷族.仓库\`: Array<InventoryItem>
 </数据结构定义>`;

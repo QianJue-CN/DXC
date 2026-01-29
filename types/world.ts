@@ -127,7 +127,6 @@ export interface WarGameState {
 // Refactor Business States to Chinese
 export interface WorldState {
   异常指数: number; // tensionLevel
-  眷族声望: number; // publicOpinion
   头条新闻: string[]; // breakingNews
   街头传闻: { 主题: string; 传播度: number }[]; // activeRumors
   诸神神会: DenatusState;
@@ -142,6 +141,7 @@ export interface FamiliaState {
   等级: string; // Rank
   主神: string;
   资金: number;
+  声望: number;
   设施状态: any;
   仓库: InventoryItem[]; 
 }

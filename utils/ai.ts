@@ -451,9 +451,11 @@ export const constructTaskContext = (tasks: Task[], params: any): string => {
     }
     
     if (historyTasks.length > 0) {
-        const compressed = historyTasks.map(t => {
+        const compressed = historyTasks.map((t, idx) => {
             const lastLog = t.日志 && t.日志.length > 0 ? t.日志[t.日志.length - 1].内容 : "无记录";
-            return { 标题: t.标题, 状态: t.状态, 评级: t.评级, 结案摘要: lastLog };
+            const taskIndex = tasks.indexOf(t);
+            const seq = taskIndex >= 0 ? taskIndex + 1 : (idx + 1);
+            return { 序号: seq, 标题: t.标题, 状态: t.状态, 评级: t.评级, 结案摘要: lastLog };
         });
         output += `>>> 历史记录:\n${JSON.stringify(compressed, null, 2)}`;
     }
@@ -464,7 +466,6 @@ export const constructTaskContext = (tasks: Task[], params: any): string => {
 export const constructWorldContext = (world: any, params: any): string => {
     return `[世界动态 (World State)]\n` + 
            `异常指数: ${world.异常指数}\n` +
-           `眷族声望: ${world.眷族声望}\n` +
            `头条新闻: ${JSON.stringify(world.头条新闻 || [])}\n` + 
            `街头传闻: ${JSON.stringify(world.街头传闻 || [])}\n` +
            `诸神神会: ${JSON.stringify(world.诸神神会 || {}, null, 0)}\n` +

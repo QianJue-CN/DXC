@@ -435,7 +435,6 @@ export const createNewGameState = (
 
         世界: {
             异常指数: difficulty === Difficulty.HELL ? 40 : 10, 
-            眷族声望: 50, 
             头条新闻: initialNews, 
             街头传闻: initialRumors,
             诸神神会: {
@@ -482,7 +481,7 @@ export const createNewGameState = (
             备注: ""
         },
         契约: [],
-        眷族: { 名称: "无", 等级: "I", 主神: "None", 资金: 0, 设施状态: {}, 仓库: [] },
+        眷族: { 名称: "无", 等级: "I", 主神: "None", 资金: 0, 声望: 50, 设施状态: {}, 仓库: [] },
         记忆: { lastLogIndex: 0, instant: [], shortTerm: [], mediumTerm: [], longTerm: [] },
         战斗: { 是否战斗中: false, 敌方: null, 战斗记录: [] },
         回合数: 1
@@ -490,5 +489,17 @@ export const createNewGameState = (
 };
 
 export const mapRawDataToGameState = (raw: RawGameData): GameState => {
-   return raw as GameState;
+   const data = raw as GameState;
+   if (!data.眷族) {
+       data.眷族 = { 名称: "无", 等级: "I", 主神: "None", 资金: 0, 声望: 0, 设施状态: {}, 仓库: [] };
+   }
+   if (typeof (data.眷族 as any).声望 !== 'number') {
+       const legacy = (data as any).世界?.眷族声望;
+       if (typeof legacy === 'number') {
+           data.眷族.声望 = legacy;
+       } else if (typeof (data.眷族 as any).声望 !== 'number') {
+           data.眷族.声望 = 0;
+       }
+   }
+   return data;
 };

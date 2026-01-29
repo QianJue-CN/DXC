@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Flag, Coins, Home, Package } from 'lucide-react';
+import { X, Flag, Coins, Home, Package, Crown } from 'lucide-react';
 import { FamiliaState } from '../../../types';
 
 interface FamiliaModalProps {
@@ -18,6 +18,7 @@ export const FamiliaModal: React.FC<FamiliaModalProps> = ({ isOpen, onClose, fam
       主神: "None",
       等级: "I",
       资金: 0,
+      声望: 0,
       仓库: [],
       设施状态: {}
   };
@@ -47,7 +48,7 @@ export const FamiliaModal: React.FC<FamiliaModalProps> = ({ isOpen, onClose, fam
             </div>
 
             {/* Main Stats */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-black/40 border border-blue-500/30 p-4 flex items-center gap-4">
                     <div className="bg-blue-600 p-3 rounded-full text-white"><Coins /></div>
                     <div>
@@ -60,6 +61,16 @@ export const FamiliaModal: React.FC<FamiliaModalProps> = ({ isOpen, onClose, fam
                     <div>
                         <div className="text-xs text-blue-300 uppercase">据点等级</div>
                         <div className="text-2xl font-mono">Rank {safeFamilia.等级}</div>
+                    </div>
+                </div>
+                <div className="bg-black/40 border border-blue-500/30 p-4 flex items-center gap-4">
+                    <div className="bg-blue-600 p-3 rounded-full text-white"><Crown /></div>
+                    <div className="flex-1">
+                        <div className="text-xs text-blue-300 uppercase">眷族声望</div>
+                        <div className="text-2xl font-mono">{safeFamilia.声望 ?? 0}</div>
+                        <div className="mt-2 h-1 bg-blue-950 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-400" style={{ width: `${Math.min(100, (safeFamilia.声望 ?? 0) / 100)}%` }} />
+                        </div>
                     </div>
                 </div>
             </div>
