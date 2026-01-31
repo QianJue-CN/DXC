@@ -112,11 +112,15 @@ export const LeafletMapView: React.FC<LeafletMapViewProps> = ({
       zoomDelta: 0.5,
       zoomControl: false,
       attributionControl: false,
-      scrollWheelZoom: true
+      scrollWheelZoom: true,
+      touchZoom: true,
+      doubleClickZoom: true,
+      dragging: true
     });
     mapRef.current = map;
     map.on('zoomend', () => setZoom(map.getZoom()));
     onMapReady?.(map);
+    setTimeout(() => map.invalidateSize(), 0);
   }, [onMapReady]);
 
   useEffect(() => {
@@ -131,6 +135,7 @@ export const LeafletMapView: React.FC<LeafletMapViewProps> = ({
     map.setMaxBounds(bounds);
     map.fitBounds(bounds, { padding: [24, 24] });
     setZoom(map.getZoom());
+    map.invalidateSize();
   }, [activeLayer?.id, activeLayer?.url, bounds]);
 
   useEffect(() => {

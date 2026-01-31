@@ -271,7 +271,10 @@ export const MobileMapView: React.FC<MobileMapViewProps> = ({
   useEffect(() => {
       setViewingFloor(floor);
       resolveAutoView();
-      setTimeout(() => centerOnPlayer(), 100);
+      setTimeout(() => {
+          centerOnPlayer();
+          mapRef.current?.invalidateSize();
+      }, 100);
   }, [currentPos, floor, location, worldMap]); 
 
   useEffect(() => {
@@ -521,7 +524,7 @@ export const MobileMapView: React.FC<MobileMapViewProps> = ({
         ) : viewingFloor === 0 && viewMode === 'mid' && activeMid?.layout ? (
             renderLayoutView(activeMid.layout, `地区地图 · ${activeMid.name}`, activeMid.area, activeMid.coordinates)
         ) : (
-            <div className="flex-1 w-full h-full">
+            <div className="flex-1 w-full h-full relative z-0">
                 <LeafletMapView
                     mapData={mapData}
                     viewMode={viewMode}

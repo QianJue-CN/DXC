@@ -290,7 +290,10 @@ export const MapModal: React.FC<MapModalProps> = ({
           setViewingFloor(floor);
           resolveAutoView();
           // Small delay to let ref mount
-          setTimeout(() => centerOnPlayer(), 100);
+          setTimeout(() => {
+              centerOnPlayer();
+              mapRef.current?.invalidateSize();
+          }, 100);
       }
   }, [isOpen, floor, location, worldMap]);
 
@@ -388,7 +391,7 @@ export const MapModal: React.FC<MapModalProps> = ({
 
 
   const renderSurfaceMap = () => (
-      <div className="flex-1 bg-[#050a14] relative overflow-hidden border-t-2 border-b-2 border-blue-900">
+      <div className="flex-1 bg-[#050a14] relative z-0 overflow-hidden border-t-2 border-b-2 border-blue-900">
           <LeafletMapView
               mapData={mapData}
               viewMode={viewMode}
@@ -401,7 +404,10 @@ export const MapModal: React.FC<MapModalProps> = ({
               showNPCs={showNPCs}
               showLabels={true}
               onSelectLocation={setSelectedLocation}
-              onMapReady={(map) => { mapRef.current = map; }}
+              onMapReady={(map) => {
+                  mapRef.current = map;
+                  setTimeout(() => centerOnPlayer(), 0);
+              }}
           />
       </div>
   );

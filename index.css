@@ -50,6 +50,7 @@ body {
 .leaflet-container {
   background: #050a14;
   font-family: inherit;
+  z-index: 0;
 }
 
 .leaflet-tooltip {
