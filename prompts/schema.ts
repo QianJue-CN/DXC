@@ -219,11 +219,11 @@
 
 ## 10. 地图系统 (gameState.地图)
 - 坐标单位：像素坐标（每个地图层独立坐标系）
-- `gameState.地图.world`: { "id", "name", "bounds": { "width", "height" }, "center": { "x", "y" }, "size": { "width", "height", "unit?" }, "locations": Array<{ "id", "name", "center": { "x", "y" }, "size": { "width", "height", "unit?" } }> }
-- `gameState.地图.regions`: Array<{ "id", "name", "worldLocationId", "bounds": { "width", "height" }, "center": { "x", "y" }, "size": { "width", "height", "unit?" }, "landmarks": Array<{ "id", "name", "position": { "x", "y" }, "radius?", "type?", "description?" }>, "buildings": Array<{ "id", "name", "description", "type?" }>, "dungeonId?" }>
-- `gameState.地图.buildings`: { [buildingId]: { "id", "regionId", "name", "description?", "bounds": { "width", "height" }, "anchor": { "x", "y" }, "layout": { "scale?", "width", "height", "rooms", "furniture", "entrances", "notes?" } } }
-- `gameState.地图.dungeons`: { [dungeonId]: { "id", "regionId", "name", "description?", "entrance": { "x", "y" }, "floors": Array<{ "floor", "bounds": { "width", "height" }, "rooms": Array<{ "id", "name", "type?", "x", "y", "width", "height", "discovered?", "description?" }>, "edges": Array<{ "id", "from", "to", "points": Array<{ "x", "y" }>, "discovered?", "type?" }> }> } }
-- `gameState.地图.current`: { "mode": "WORLD|REGION|BUILDING|DUNGEON", "regionId?", "buildingId?", "dungeonId?", "floor?" }
+- \`gameState.地图.world\`: { "id", "name", "bounds": { "width", "height" }, "center": { "x", "y" }, "size": { "width", "height", "unit?" }, "locations": Array<{ "id", "name", "center": { "x", "y" }, "size": { "width", "height", "unit?" } }> }
+- \`gameState.地图.regions\`: Array<{ "id", "name", "worldLocationId", "bounds": { "width", "height" }, "center": { "x", "y" }, "size": { "width", "height", "unit?" }, "landmarks": Array<{ "id", "name", "position": { "x", "y" }, "radius?", "type?", "description?" }>, "buildings": Array<{ "id", "name", "description", "type?" }>, "dungeonId?" }>
+- \`gameState.地图.buildings\`: { [buildingId]: { "id", "regionId", "name", "description?", "bounds": { "width", "height" }, "anchor": { "x", "y" }, "layout": { "scale?", "width", "height", "rooms", "furniture", "entrances", "notes?" } } }
+- \`gameState.地图.dungeons\`: { [dungeonId]: { "id", "regionId", "name", "description?", "entrance": { "x", "y" }, "floors": Array<{ "floor", "bounds": { "width", "height" }, "rooms": Array<{ "id", "name", "type?", "x", "y", "width", "height", "discovered?", "description?" }>, "edges": Array<{ "id", "from", "to", "points": Array<{ "x", "y" }>, "discovered?", "type?" }> }> } }
+- \`gameState.地图.current\`: { "mode": "WORLD|REGION|BUILDING|DUNGEON", "regionId?", "buildingId?", "dungeonId?", "floor?" }
 
 ## 11. 剧情进度 (gameState.剧情)
 - \`gameState.剧情.主线\`: { "当前卷数": Number, "当前篇章": String, "当前阶段": String, "关键节点": String, "节点状态": String }
