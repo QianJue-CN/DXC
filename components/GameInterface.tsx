@@ -72,7 +72,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
       memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
       handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleCreatePublicPost, handleCreateThread, handleMarkThreadRead, handleSilentWorldUpdate, handleWaitForPhoneReply,
       stopInteraction, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite,
-      manualSave, loadGame, handleReroll, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory,
+      manualSave, loadGame, handleReroll, handleDeleteTask, handleUpdateTaskStatus, handleCompleteStoryStage,
       handleEditPhoneMessage, handleDeletePhoneMessage,
       phoneNotifications,
   } = useGameLogic(initialState, onExit);
@@ -383,7 +383,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             onClose={closeModal} 
             story={gameState.剧情}
             gameTime={gameState.游戏时间}
-            onUpdateStory={handleUpdateStory}
+            onCompleteStage={handleCompleteStoryStage}
         />
 
         <ContractModal 

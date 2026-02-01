@@ -571,6 +571,9 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         if (error.name === 'AbortError') return true;
         return /abort/i.test(error.message || '');
     };
+    const shouldUsePhoneSyncPlan = (response?: any) => {
+        return isPhoneSyncPlanEnabled(settings) && !!response?.phone_sync_plan;
+    };
 
     const parseGameTimeParts = (input?: string) => {
         if (!input) return null;
@@ -650,6 +653,13 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         if (!aiCfg) return false;
         const resolved = resolveServiceConfig(cfg, 'phone');
         return !!resolved?.apiKey;
+    };
+    const isPhoneSyncPlanEnabled = (cfg: AppSettings) => {
+        const aiCfg = cfg?.aiConfig;
+        if (!aiCfg?.useServiceOverrides) return false;
+        if (aiCfg.serviceOverridesEnabled?.phone !== true) return false;
+        const phoneCfg = aiCfg.services?.phone;
+        return !!phoneCfg?.apiKey;
     };
 
     const upsertPhoneThread = (phone: any, threadType: 'private' | 'group' | 'public', title: string, members?: string[]) => {
@@ -1084,7 +1094,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 const responseId = generateLegacyId();
                 const responseSnapshot = JSON.stringify(createStorageSnapshot(stateWithUserLog));
                 const rawCommands = Array.isArray(aiResponse.tavern_commands) ? aiResponse.tavern_commands : [];
-                const commands = aiResponse.phone_sync_plan
+                const usePhoneSyncPlan = shouldUsePhoneSyncPlan(aiResponse);
+                const commands = usePhoneSyncPlan
                     ? rawCommands.filter(cmd => !(typeof cmd?.key === 'string' && cmd.key.startsWith('gameState.手机')))
                     : rawCommands;
                 let logs = Array.isArray(aiResponse.logs) ? aiResponse.logs : [];
@@ -1166,7 +1177,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 return newState;
             });
 
-            if (aiResponse.phone_sync_plan && nextStateForPhoneSync) {
+            if (shouldUsePhoneSyncPlan(aiResponse) && nextStateForPhoneSync) {
                 handlePhoneSyncPlan(aiResponse.phone_sync_plan, nextStateForPhoneSync);
             }
         } catch (error: any) {
@@ -1359,9 +1370,9 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         clearPendingCommands(); 
     };
     const handlePhoneSyncPlan = async (plan: any, baseState: GameState) => {
+        if (!isPhoneSyncPlanEnabled(settings)) return;
         const localCheck = isPhoneLocallyAvailable(baseState);
         if (!localCheck.ok) return;
-        if (!isPhoneApiConfigured(settings)) return;
         try {
             setIsPhoneProcessing(true);
             setPhoneProcessingThreadId(null);
@@ -1805,7 +1816,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             let nextStateForPhoneSync: GameState | null = null;
             setGameState(prev => {
                 const rawCommands = Array.isArray(aiResponse.tavern_commands) ? aiResponse.tavern_commands : [];
-                const commands = aiResponse.phone_sync_plan
+                const usePhoneSyncPlan = shouldUsePhoneSyncPlan(aiResponse);
+                const commands = usePhoneSyncPlan
                     ? rawCommands.filter(cmd => !(typeof cmd?.key === 'string' && cmd.key.startsWith('gameState.手机')))
                     : rawCommands;
                 const { newState } = processTavernCommands(prev, commands);
@@ -1813,7 +1825,7 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 nextStateForPhoneSync = newState;
                 return newState;
             });
-            if (aiResponse.phone_sync_plan && nextStateForPhoneSync) {
+            if (shouldUsePhoneSyncPlan(aiResponse) && nextStateForPhoneSync) {
                 handlePhoneSyncPlan(aiResponse.phone_sync_plan, nextStateForPhoneSync);
             }
         } catch (e) {
@@ -1933,7 +1945,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         logsForResponse: LogEntry[]
     ) => {
         const rawCommands = Array.isArray(response?.tavern_commands) ? response.tavern_commands : [];
-        const commands = (response as any)?.phone_sync_plan
+        const usePhoneSyncPlan = shouldUsePhoneSyncPlan(response);
+        const commands = usePhoneSyncPlan
             ? rawCommands.filter(cmd => !(typeof cmd?.key === 'string' && cmd.key.startsWith('gameState.手机')))
             : rawCommands;
         const { newState } = processTavernCommands(state, commands);
@@ -2125,13 +2138,46 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             return { ...prev, 剧情: nextStory };
         });
     };
+    const handleCompleteStoryStage = (milestoneNote?: string) => {
+        setGameState(prev => {
+            const current = prev.剧情 || ({} as StoryState);
+            const main = current.主线 || ({} as StoryState['主线']);
+            const guide = current.引导 || ({} as StoryState['引导']);
+            const timeline = current.时间轴 || ({} as StoryState['时间轴']);
+            const route = current.路线 || ({} as StoryState['路线']);
+            const noteMarker = '【手动推进】当前阶段已完成，请规划下一阶段';
+            const existingNote = (current.备注 || '').trim();
+            const nextNote = existingNote.includes('手动推进')
+                ? existingNote
+                : (existingNote ? `${existingNote}\n${noteMarker}` : noteMarker);
+            const nextStory: StoryState = {
+                ...current,
+                主线: { ...main, 节点状态: '完成' },
+                引导: { ...guide },
+                时间轴: { ...timeline },
+                路线: { ...route },
+                待触发: current.待触发,
+                里程碑: current.里程碑,
+                备注: nextNote
+            };
+            if (milestoneNote && milestoneNote.trim()) {
+                const entry: StoryMilestone = {
+                    时间: prev.游戏时间 || '未知',
+                    事件: milestoneNote.trim()
+                };
+                const list = Array.isArray(nextStory.里程碑) ? [...nextStory.里程碑, entry] : [entry];
+                nextStory.里程碑 = list;
+            }
+            return { ...prev, 剧情: nextStory };
+        });
+    };
 
     return {
         gameState, setGameState, settings, setSettings,
         commandQueue, pendingCommands, addToQueue, removeFromQueue, currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming, isPhoneProcessing, phoneProcessingThreadId, phoneProcessingScope, draftInput, setDraftInput,
         memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
         handleAIInteraction, stopInteraction, handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleCreatePublicPost, handleCreateThread, handleMarkThreadRead, handleSilentWorldUpdate, handleWaitForPhoneReply, saveSettings, manualSave, loadGame, updateConfidant, updateMemory,
-        handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory,
+        handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory, handleCompleteStoryStage,
         handleEditPhoneMessage, handleDeletePhoneMessage,
         phoneNotifications
     };

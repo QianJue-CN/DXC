@@ -12,7 +12,8 @@ import {
     P_ACTION_OPTIONS, P_FAMILIA_JOIN, P_STORY_GUIDE,
     P_PHONE_SYSTEM, P_PHONE_COT,
     P_SYS_FORMAT_MULTI, P_COT_LOGIC_MULTI,
-    P_SYS_COMMANDS, P_SYS_GLOSSARY
+    P_SYS_COMMANDS, P_SYS_GLOSSARY,
+    P_PHONE_SYNC_ENABLED, P_PHONE_SYNC_DISABLED
 } from "../prompts";
 import { Difficulty } from "../types/enums";
 
@@ -112,6 +113,18 @@ const buildCotPrompt = (settings: AppSettings): string => {
     if (base && base.isActive !== false) return base.content;
     const fallback = modules.find(m => m.isActive);
     return fallback ? fallback.content : "";
+};
+
+const isPhoneSyncPlanEnabled = (settings: AppSettings): boolean => {
+    const aiCfg = settings?.aiConfig;
+    if (!aiCfg) return false;
+    const overridesEnabled = aiCfg.useServiceOverrides ?? aiCfg.mode === 'separate';
+    if (!overridesEnabled) return false;
+    const overrideFlags = aiCfg.serviceOverridesEnabled || {};
+    const serviceEnabled = (overrideFlags as any)?.phone ?? (aiCfg.mode === 'separate');
+    if (!serviceEnabled) return false;
+    const phoneCfg = aiCfg.services?.phone;
+    return !!phoneCfg?.apiKey;
 };
 
 
@@ -1024,6 +1037,8 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
                 }
             }
             let content = sorted.map(m => m.content).join('\n\n');
+            const phoneSyncPrompt = isPhoneSyncPlanEnabled(settings) ? P_PHONE_SYNC_ENABLED : P_PHONE_SYNC_DISABLED;
+            if (phoneSyncPrompt) content += "\n\n" + phoneSyncPrompt;
             if (settings.enableActionOptions) content += "\n\n" + P_ACTION_OPTIONS;
             return content;
 
