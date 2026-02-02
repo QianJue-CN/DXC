@@ -68,7 +68,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
       memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
       handlePlayerAction, handlePlayerInput, handleSilentWorldUpdate,
       stopInteraction, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite,
-      manualSave, loadGame, handleReroll, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory,
+      manualSave, loadGame, handleReroll, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory, handleCompleteStoryStage,
   } = useGameLogic(initialState, onExit);
 
   // Modal States
@@ -332,7 +332,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             onClose={closeModal} 
             story={gameState.剧情}
             gameTime={gameState.游戏时间}
-            onUpdateStory={handleUpdateStory}
+            onCompleteStage={handleCompleteStoryStage}
         />
 
         <ContractModal 

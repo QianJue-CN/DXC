@@ -1,6 +1,6 @@
 ﻿
 import { useState, useEffect, useRef } from 'react';
-import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, StoryState, StoryMilestone } from '../types';
+import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, StoryState } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
 import { computeMaxCarry, computeMaxHp, computeMaxMind, computeMaxStamina } from '../utils/characterMath';
 import { generateDungeonMasterResponse, generateWorldInfoResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText, mergeThinkingSegments, resolveServiceConfig } from '../utils/ai';
@@ -175,6 +175,50 @@ const migrateNpcActionsToTracking = (state: GameState): GameState => {
     };
 };
 
+const migrateStoryState = (state: GameState): GameState => {
+    if (!state?.剧情) return state;
+    const story: any = state.剧情;
+    if (story.对应原著对应章节 || story.剧情规划 || story.本世界分歧剧情) return state;
+    if (!story.主线 && !story.引导 && !story.时间轴 && !story.待触发) return state;
+
+    const volumeLabel = typeof story.主线?.当前卷数 === 'number' ? `第${story.主线.当前卷数}卷` : '未知卷';
+    const chapterName = typeof story.主线?.当前篇章 === 'string' && story.主线.当前篇章.trim()
+        ? story.主线.当前篇章.trim()
+        : '未知章节名';
+    const node = typeof story.主线?.关键节点 === 'string' ? story.主线.关键节点.trim() : '';
+    const guide = typeof story.引导?.当前目标 === 'string' ? story.引导.当前目标.trim() : '';
+    const summary = [node, guide].filter(Boolean).join('；');
+
+    const divergenceNote = typeof story.路线?.分歧说明 === 'string' ? story.路线.分歧说明.trim() : '';
+    const divergencePoint = divergenceNote ? (divergenceNote.length > 20 ? divergenceNote.slice(0, 20) : divergenceNote) : '';
+    const pending = Array.isArray(story.待触发)
+        ? story.待触发.map((evt: any) => ({
+            事件: evt?.内容 || '未知事件',
+            激活时间: evt?.预计触发 || '未知时间',
+            激活条件: evt?.触发条件 || '满足剧情条件'
+        }))
+        : [];
+
+    const nextStory: StoryState = {
+        对应原著对应章节: chapterName ? `${volumeLabel} ${chapterName}` : volumeLabel,
+        对应章节名: chapterName,
+        原著大概剧情走向: summary || '暂无原著剧情走向记录。',
+        本世界分歧剧情: {
+            说明: divergenceNote || (story.路线?.是否正史 === false ? '出现显著分歧。' : '暂无分歧说明。'),
+            分点: divergencePoint ? [divergencePoint] : [],
+            归纳总结: ''
+        },
+        剧情规划: {
+            规划长期剧情走向: typeof story.主线?.当前阶段 === 'string' ? story.主线.当前阶段 : '暂无长期规划。',
+            规划中期剧情走向: typeof story.引导?.下一触发 === 'string' ? story.引导.下一触发 : '暂无中期规划。',
+            规划短期剧情走向: guide || (typeof story.引导?.行动提示 === 'string' ? story.引导.行动提示 : '暂无短期规划。')
+        },
+        待激活事件: pending
+    };
+
+    return { ...state, 剧情: nextStory };
+};
+
 const ensureDerivedStats = (state: GameState): GameState => {
     if (!state?.角色) return state;
     const toNumber = (value: any, fallback = 0) => {
@@ -317,7 +361,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             if (typeof initialState.记忆.lastLogIndex !== 'number') {
                 initialState.记忆.lastLogIndex = Math.max(0, initialState.日志.length - 10);
             }
-            return ensureDerivedStats(migrateNpcActionsToTracking(initialState));
+            const migrated = migrateStoryState(migrateNpcActionsToTracking(initialState));
+            return ensureDerivedStats(migrated);
         }
         return ensureDerivedStats(migrateNpcActionsToTracking(createNewGameState("Adventurer", "Male", "Human")));
     });
@@ -476,7 +521,8 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             try {
                 const parsed = JSON.parse(raw);
                 const state = parsed.data || parsed;
-                setGameState(ensureDerivedStats(state));
+                const migrated = migrateStoryState(migrateNpcActionsToTracking(state));
+                setGameState(ensureDerivedStats(migrated));
             } catch(e) { console.error("Load failed", e); }
         }
     };
@@ -1190,23 +1236,37 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         if (!patch && !milestoneNote) return;
         setGameState(prev => {
             const current = prev.剧情 || ({} as StoryState);
+            const nextDivergence = {
+                说明: current.本世界分歧剧情?.说明 || '',
+                分点: Array.isArray(current.本世界分歧剧情?.分点) ? [...current.本世界分歧剧情!.分点] : [],
+                归纳总结: current.本世界分歧剧情?.归纳总结 || ''
+            };
+            const nextPlan = {
+                规划长期剧情走向: current.剧情规划?.规划长期剧情走向 || '',
+                规划中期剧情走向: current.剧情规划?.规划中期剧情走向 || '',
+                规划短期剧情走向: current.剧情规划?.规划短期剧情走向 || ''
+            };
             const nextStory: StoryState = {
                 ...current,
-                主线: { ...(current.主线 || {}), ...(patch?.主线 || {}) },
-                引导: { ...(current.引导 || {}), ...(patch?.引导 || {}) },
-                时间轴: { ...(current.时间轴 || {}), ...(patch?.时间轴 || {}) },
-                路线: { ...(current.路线 || {}), ...(patch?.路线 || {}) },
-                待触发: patch?.待触发 ?? current.待触发,
-                里程碑: patch?.里程碑 ?? current.里程碑,
-                备注: patch?.备注 ?? current.备注
+                ...patch,
+                本世界分歧剧情: { ...nextDivergence, ...(patch?.本世界分歧剧情 || {}) },
+                剧情规划: { ...nextPlan, ...(patch?.剧情规划 || {}) },
+                待激活事件: patch?.待激活事件 ?? current.待激活事件
             };
             if (milestoneNote && milestoneNote.trim()) {
-                const entry: StoryMilestone = {
-                    时间: prev.游戏时间 || '未知',
-                    事件: milestoneNote.trim()
-                };
-                const list = Array.isArray(nextStory.里程碑) ? [...nextStory.里程碑, entry] : [entry];
-                nextStory.里程碑 = list;
+                const note = milestoneNote.trim();
+                if (note.length <= 20) {
+                    const points = Array.isArray(nextStory.本世界分歧剧情.分点)
+                        ? [...nextStory.本世界分歧剧情.分点, note]
+                        : [note];
+                    nextStory.本世界分歧剧情 = { ...nextStory.本世界分歧剧情, 分点: points };
+                } else {
+                    const prefix = nextStory.本世界分歧剧情.说明 ? '\n' : '';
+                    nextStory.本世界分歧剧情 = {
+                        ...nextStory.本世界分歧剧情,
+                        说明: `${nextStory.本世界分歧剧情.说明}${prefix}补充: ${note}`
+                    };
+                }
             }
             return { ...prev, 剧情: nextStory };
         });
@@ -1214,33 +1274,23 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const handleCompleteStoryStage = (milestoneNote?: string) => {
         setGameState(prev => {
             const current = prev.剧情 || ({} as StoryState);
-            const main = current.主线 || ({} as StoryState['主线']);
-            const guide = current.引导 || ({} as StoryState['引导']);
-            const timeline = current.时间轴 || ({} as StoryState['时间轴']);
-            const route = current.路线 || ({} as StoryState['路线']);
+            const plan = current.剧情规划 || {
+                规划长期剧情走向: '',
+                规划中期剧情走向: '',
+                规划短期剧情走向: ''
+            };
             const noteMarker = '【手动推进】当前阶段已完成，请规划下一阶段';
-            const existingNote = (current.备注 || '').trim();
-            const nextNote = existingNote.includes('手动推进')
-                ? existingNote
-                : (existingNote ? `${existingNote}\n${noteMarker}` : noteMarker);
+            const existing = (plan.规划短期剧情走向 || '').trim();
+            let nextShort = existing.includes('手动推进')
+                ? existing
+                : (existing ? `${existing}\n${noteMarker}` : noteMarker);
+            if (milestoneNote && milestoneNote.trim()) {
+                nextShort = `${nextShort}\n完成记录：${milestoneNote.trim()}`;
+            }
             const nextStory: StoryState = {
                 ...current,
-                主线: { ...main, 节点状态: '完成' },
-                引导: { ...guide },
-                时间轴: { ...timeline },
-                路线: { ...route },
-                待触发: current.待触发,
-                里程碑: current.里程碑,
-                备注: nextNote
+                剧情规划: { ...plan, 规划短期剧情走向: nextShort }
             };
-            if (milestoneNote && milestoneNote.trim()) {
-                const entry: StoryMilestone = {
-                    时间: prev.游戏时间 || '未知',
-                    事件: milestoneNote.trim()
-                };
-                const list = Array.isArray(nextStory.里程碑) ? [...nextStory.里程碑, entry] : [entry];
-                nextStory.里程碑 = list;
-            }
             return { ...prev, 剧情: nextStory };
         });
     };

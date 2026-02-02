@@ -217,13 +217,12 @@
 - \`gameState.地图.current\`: { "mode": "WORLD|REGION|BUILDING|DUNGEON", "regionId?", "buildingId?", "dungeonId?", "floor?" }
 
 ## 11. 剧情进度 (gameState.剧情)
-- \`gameState.剧情.主线\`: { "当前卷数": Number, "当前篇章": String, "当前阶段": String, "关键节点": String, "节点状态": String }
-- \`gameState.剧情.引导\`: { "当前目标": String, "下一触发": String, "行动提示": String }
-- \`gameState.剧情.时间轴\`: { "预定日期": String, "下一关键时间?": String }
-- \`gameState.剧情.路线\`: { "是否正史": Boolean, "偏移度": Number, "分歧说明?": String }
-- \`gameState.剧情.待触发\`: Array<{ "预计触发": String, "内容": String, "类型?": String, "触发条件?": String, "重要度?": String, "状态?": String }> (最多 3 条)
-- \`gameState.剧情.里程碑\`: Array<{ "时间": String, "事件": String, "影响?": String }>
-- \`gameState.剧情.备注\`: String
+- \`gameState.剧情.对应原著对应章节\`: String
+- \`gameState.剧情.对应章节名\`: String
+- \`gameState.剧情.原著大概剧情走向\`: String (200字内)
+- \`gameState.剧情.本世界分歧剧情\`: { "说明": String, "分点": String[], "归纳总结?": String }
+- \`gameState.剧情.剧情规划\`: { "规划长期剧情走向": String, "规划中期剧情走向": String, "规划短期剧情走向": String }
+- \`gameState.剧情.待激活事件\`: Array<{ "事件": String, "激活时间": String, "激活条件": String }>
 
 ## 12. 契约系统 (gameState.契约)
 - \`gameState.契约\`: Array<{ "id", "名称", "描述", "状态", "条款" }>
