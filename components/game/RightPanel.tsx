@@ -1,6 +1,6 @@
 ﻿
 import React from 'react';
-import { Briefcase, Users, ClipboardList, Zap, Settings, Smartphone, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive, Loader2, StickyNote, Scale, Bell, Database } from 'lucide-react';
+import { Briefcase, Users, ClipboardList, Zap, Settings, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive, Scale, Database } from 'lucide-react';
 import { MenuButton } from './right/MenuButton';
 
 interface RightPanelProps {
@@ -10,7 +10,6 @@ interface RightPanelProps {
     onOpenSocial: () => void;
     onOpenTasks: () => void;
     onOpenSkills: () => void;
-    onOpenPhone: () => void;
     onOpenWorld: () => void;
     onOpenFamilia: () => void;
     onOpenStory: () => void;
@@ -19,16 +18,11 @@ interface RightPanelProps {
     onOpenLootVault: () => void;
     onOpenSaveManager: () => void;
     onOpenMemory: () => void;
-    onOpenNotes: () => void;
     onOpenLibrary: () => void;
     onOpenParty?: () => void;
     isHellMode?: boolean;
-    hasPhone?: boolean;
-    phoneProcessing?: boolean;
-    phoneProcessingScope?: 'chat' | 'moment' | 'forum' | 'sync' | 'auto' | 'manual' | null;
     summary?: {
         activeTasks: number;
-        unreadMessages: number;
         partySize: number;
         presentCount: number;
         inventoryWeight?: number;
@@ -44,7 +38,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     onOpenSocial,
     onOpenTasks,
     onOpenSkills,
-    onOpenPhone,
     onOpenWorld,
     onOpenFamilia,
     onOpenStory,
@@ -53,13 +46,9 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     onOpenLootVault,
     onOpenSaveManager,
     onOpenMemory,
-    onOpenNotes,
     onOpenLibrary,
     onOpenParty,
     isHellMode,
-    hasPhone = true,
-    phoneProcessing = false,
-    phoneProcessingScope = null,
     summary
 }) => {
   // Theme Overrides
@@ -67,11 +56,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
   const primaryHover = isHellMode ? 'group-hover:bg-red-600' : 'group-hover:bg-blue-600';
   const secondaryHover = isHellMode ? 'group-hover:bg-orange-600' : 'group-hover:bg-orange-600'; // Keep orange or change
   const settingsBorder = isHellMode ? 'group-hover:border-red-600' : 'group-hover:border-blue-600';
-  const phoneIndicator = phoneProcessing ? (
-        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${(phoneProcessingScope === 'sync' || phoneProcessingScope === 'auto' || phoneProcessingScope === 'manual') ? 'bg-blue-500' : 'bg-orange-500'} shadow-lg animate-pulse`}>
-            <Loader2 size={12} className="text-white animate-spin" />
-        </div>
-    ) : null;
 
   return (
     <div className="w-full lg:w-[20%] h-full bg-zinc-900/90 backdrop-blur-sm flex flex-col p-3 gap-2 overflow-hidden relative border-l-4 border-black">
@@ -87,11 +71,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                         <ClipboardList size={12} className="text-amber-400" />
                         <span>任务</span>
                         <span className="ml-auto text-white">{summary.activeTasks}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-zinc-300">
-                        <Bell size={12} className="text-cyan-400" />
-                        <span>未读</span>
-                        <span className="ml-auto text-white">{summary.unreadMessages}</span>
                     </div>
                     <div className="flex items-center gap-2 text-zinc-300">
                         <Users size={12} className="text-indigo-400" />
@@ -189,24 +168,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 colorClass="bg-zinc-800"
                 hoverColorClass="group-hover:bg-emerald-600 group-hover:border-white"
                 onClick={onOpenMemory}
-            />
-            <MenuButton
-                label="笔记"
-                icon={<StickyNote className="w-5 h-5 lg:w-5 lg:h-5" />}
-                delay={235}
-                colorClass="bg-zinc-800"
-                hoverColorClass="group-hover:bg-cyan-600 group-hover:border-white"
-                onClick={onOpenNotes}
-            />
-            <MenuButton 
-                label="手机" 
-                icon={<Smartphone className="w-5 h-5 lg:w-5 lg:h-5" />} 
-                delay={250} 
-                colorClass="bg-zinc-800"
-                hoverColorClass="group-hover:bg-orange-500 group-hover:border-white"
-                onClick={onOpenPhone}
-                disabled={!hasPhone}
-                indicator={phoneIndicator}
             />
             <MenuButton 
                 label="世界" 

@@ -36,10 +36,6 @@ NPC路径: 修改NPC属性时，**必须**使用数组索引定位，如 \`gameS
 - 叙事仅描述“递过去/掉落/发现”但未明确“拾取/收入/分配/上交/放入”时，**禁止**把物品加入背包、公共战利品或战利品仓库。
 - 只有明确“拾取/装入公共包/交给背负者/分配/上交”时，才允许生成公共战利品或战利品仓库相关指令。
 
-[手机内容保密]
-- logs 中**禁止**复述手机聊天/朋友圈/论坛的具体正文，仅可描述“发送/收到/查看/等待”等动作或提示。
-- 若记忆流或手机上下文显示刚完成手机操作/等待回复，本回合 logs 开头需加入承上启下过渡句，但不得写出手机正文。
-
 [用户指令块]
 - 玩家输入中若出现 \`[用户指令]\`...\`[/用户指令]\`，视为**高优先级**指令清单。
 - 必须逐条解析并转化为对应 \`tavern_commands\`，不得遗漏、不得与剧情文本混淆。
@@ -51,13 +47,7 @@ NPC路径: 修改NPC属性时，**必须**使用数组索引定位，如 \`gameS
 ### 响应结构 (JSON Structure)
 **输出要求 (Order)**:
 - **只允许输出单一 JSON 对象**（禁止 JSON 之外的任何文本）。
-- **输出顺序必须是**：thinking_pre → logs → thinking_post → tavern_commands → shortTerm → phone_sync_plan(可选) → action_options(可选)
-- **可选字段**：仅当“手机独立API”开启且需要手机剧情同步时，才增加 \`phone_sync_plan\`（一句话规划）。未开启时禁止输出该字段，直接用 \`tavern_commands\` 更新手机内容。
-
-**手机联动输出（独立块）**:
-- \`phone_sync_plan\` 必须是**顶层独立字段**，单独成块输出；不得混入 thinking/logs/tavern_commands/shortTerm。
-- 仅写规划意图（对象/触发/节奏/语气），**禁止**写具体消息正文。
-- \`phone_sync_plan\` 必须是**一句话字符串**（类似 shortTerm），禁止输出对象或数组。
+- **输出顺序必须是**：thinking_pre → logs → thinking_post → tavern_commands → shortTerm → action_options(可选)
 
 **thinking_pre / thinking_post 字段要求**:
 - JSON 必须包含 \`thinking_pre\` 与 \`thinking_post\` 字段。

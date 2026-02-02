@@ -1,5 +1,5 @@
 ﻿
-import { GameState, RawGameData, Screen, Difficulty, InventoryItem, BodyParts, PhoneThread, PhonePost, Task, PhoneState, PhoneMessage } from "../types";
+import { GameState, RawGameData, Screen, Difficulty, InventoryItem, BodyParts, Task } from "../types";
 import { generateDanMachiMap } from "./mapSystem";
 import { computeMaxCarry } from './characterMath';
 
@@ -27,16 +27,9 @@ export const createNewGameState = (
     let startValis = 0;
     let totalHp = 300;
     let initialInventory: InventoryItem[] = [];
-    let initialPrivateThreads: PhoneThread[] = [];
-    let initialGroupThreads: PhoneThread[] = [];
-    let initialPublicThreads: PhoneThread[] = [];
-    let initialFriendPosts: PhonePost[] = [];
-    let initialPublicPosts: PhonePost[] = [];
     let initialTasks: Task[] = [];
     let initialNews: string[] = [];
     let initialRumors: { 主题: string; 传播度: number }[] = [];
-    let phoneBattery = 100;
-    let phoneSignal = 4;
     let startMind = 60;
     let maxMind = 60;
     let startStamina = 100;
@@ -54,51 +47,6 @@ export const createNewGameState = (
         饰品3: ""
     };
     const playerName = name;
-    let threadCounter = 0;
-    let messageCounter = 0;
-    const nextThreadId = () => `Thr${String(++threadCounter).padStart(3, '0')}`;
-    const nextMsgId = () => `Msg${String(++messageCounter).padStart(3, '0')}`;
-    const privateThreadMap = new Map<string, PhoneThread>();
-    const ensurePrivateThread = (targetName: string): PhoneThread => {
-        const existing = privateThreadMap.get(targetName);
-        if (existing) return existing;
-        const newThread: PhoneThread = {
-            id: nextThreadId(),
-            类型: 'private',
-            标题: targetName,
-            成员: [playerName, targetName],
-            消息: [],
-            未读: 0
-        };
-        privateThreadMap.set(targetName, newThread);
-        initialPrivateThreads.push(newThread);
-        return newThread;
-    };
-    const pushPrivateMessage = (sender: string, content: string, timeLabel: string, msgType?: string) => {
-        const thread = ensurePrivateThread(sender);
-        const message: PhoneMessage = {
-            id: nextMsgId(),
-            发送者: sender,
-            内容: content,
-            时间戳: timeLabel,
-            timestampValue: Date.now() + messageCounter,
-            类型: msgType || (sender === '系统' ? 'system' : 'text'),
-            状态: sender === playerName ? 'sent' : 'received'
-        };
-        thread.消息.push(message);
-    };
-    
-    // Common Item: Phone
-    const phoneItem: InventoryItem = {
-        id: 'Itm_Phone',
-        名称: '魔石通讯终端',
-        描述: '赫菲斯托丝眷族制造的便携式通讯器，已预装公会APP。',
-        数量: 1,
-        类型: 'key_item',
-        品质: 'Common',
-        价值: 5000,
-        重量: 0.5
-    };
 
     // --- 难度分支逻辑 ---
     if (difficulty === Difficulty.EASY) {
@@ -107,11 +55,8 @@ export const createNewGameState = (
         totalHp = 520;
         startMind = 100;
         maxMind = 100;
-        phoneBattery = 100;
-        phoneSignal = 4;
 
         initialInventory = [
-            phoneItem,
             { id: 'Eq_Wpn_E', 名称: '精炼长剑', 描述: '出自高阶工坊的练成剑，锋利且顺手。', 数量: 1, 类型: 'weapon', 武器: { 类型: '长剑', 伤害类型: '斩击', 射程: '近战', 攻速: '中', 双手: false }, 已装备: true, 装备槽位: '主手', 攻击力: 18, 品质: 'Rare', 耐久: 90, 最大耐久: 90, 价值: 12000, 重量: 1.3 },
             { id: 'Eq_Arm_E', 名称: '轻银皮甲', 描述: '以轻质合金加固的皮甲，兼顾机动与防护。', 数量: 1, 类型: 'armor', 防具: { 类型: '轻甲', 部位: '身体', 护甲等级: '轻' }, 已装备: true, 装备槽位: '身体', 防御力: 10, 品质: 'Rare', 耐久: 80, 最大耐久: 80, 价值: 8000, 重量: 2.2 },
             { id: 'Eq_Glv_E', 名称: '皮制护手', 描述: '便于握持武器的护手。', 数量: 1, 类型: 'armor', 防具: { 类型: '轻甲', 部位: '手部', 护甲等级: '轻' }, 已装备: true, 装备槽位: '手部', 防御力: 2, 品质: 'Common', 耐久: 40, 最大耐久: 40, 价值: 600, 重量: 0.4 },
@@ -127,12 +72,6 @@ export const createNewGameState = (
             头部: '', 身体: '轻银皮甲', 手部: '皮制护手', 腿部: '旅行护腿', 足部: '轻行长靴',
             主手: '精炼长剑', 副手: '', 饰品1: '冒险者护符', 饰品2: '', 饰品3: ''
         };
-
-        pushPrivateMessage(
-            '公会贵宾通道',
-            '尊敬的' + name + '，贵宾登记已预审通过。请前往公会本部二楼贵宾柜台办理手续。怪物祭将于第十二日开启，请留意公会公告。',
-            '第1日 06:50'
-        );
 
         initialTasks.push({
             id: 'Tsk_001',
@@ -159,11 +98,8 @@ export const createNewGameState = (
         totalHp = 320;
         startMind = 60;
         maxMind = 60;
-        phoneBattery = 85;
-        phoneSignal = 4;
 
         initialInventory = [
-            phoneItem,
             { id: 'Eq_Wpn_N', 名称: '铁制短剑', 描述: '公会发放的标准自卫武器。', 数量: 1, 类型: 'weapon', 武器: { 类型: '短剑', 伤害类型: '突刺', 射程: '近战', 攻速: '快', 双手: false }, 已装备: true, 装备槽位: '主手', 攻击力: 6, 品质: 'Common', 耐久: 50, 最大耐久: 50, 价值: 3000, 重量: 0.8 },
             { id: 'Eq_Arm_N', 名称: '冒险者皮甲', 描述: '耐磨的基础防具，防护有限。', 数量: 1, 类型: 'armor', 防具: { 类型: '轻甲', 部位: '身体', 护甲等级: '轻' }, 已装备: true, 装备槽位: '身体', 防御力: 3, 品质: 'Common', 耐久: 40, 最大耐久: 40, 价值: 2000, 重量: 1.4 },
             { id: 'Eq_Glv_N', 名称: '简易护手', 描述: '基础护手，便于握持武器。', 数量: 1, 类型: 'armor', 防具: { 类型: '轻甲', 部位: '手部', 护甲等级: '轻' }, 已装备: true, 装备槽位: '手部', 防御力: 1, 品质: 'Common', 耐久: 30, 最大耐久: 30, 价值: 500, 重量: 0.3 },
@@ -177,12 +113,6 @@ export const createNewGameState = (
             头部: '', 身体: '冒险者皮甲', 手部: '简易护手', 腿部: '粗布长裤', 足部: '旧皮靴',
             主手: '铁制短剑', 副手: '', 饰品1: '', 饰品2: '', 饰品3: ''
         };
-
-        pushPrivateMessage(
-            '公会注册中心',
-            '欢迎来到迷宫都市欧拉丽。检测到新终端接入，请于今日内前往公会本部完成冒险者登记。怪物祭将于第十二日开启，请留意公告。',
-            '第1日 06:55'
-        );
 
         initialTasks.push({
             id: 'Tsk_001',
@@ -209,11 +139,8 @@ export const createNewGameState = (
         totalHp = 320; // 优化开局状态：满血
         startMind = 60; // 优化开局状态：满精神
         maxMind = 60;
-        phoneBattery = 70;
-        phoneSignal = 3;
 
         initialInventory = [
-            phoneItem,
             { id: 'Eq_Wpn_H', 名称: '磨损短刀', 描述: '刃口缺损，但还能勉强使用。', 数量: 1, 类型: 'weapon', 武器: { 类型: '短刀', 伤害类型: '斩击', 射程: '近战', 攻速: '快', 双手: false }, 已装备: true, 装备槽位: '主手', 攻击力: 3, 品质: 'Common', 耐久: 20, 最大耐久: 40, 价值: 1200, 重量: 0.6 },
             { id: 'Eq_Arm_H', 名称: '旧布背心', 描述: '几乎没有防护力的旧衣。', 数量: 1, 类型: 'armor', 防具: { 类型: '布甲', 部位: '身体', 护甲等级: '轻' }, 已装备: true, 装备槽位: '身体', 防御力: 1, 品质: 'Common', 耐久: 20, 最大耐久: 30, 价值: 800, 重量: 0.5 },
             { id: 'Eq_Leg_H', 名称: '补丁长裤', 描述: '补丁缝合的旧长裤。', 数量: 1, 类型: 'armor', 防具: { 类型: '布甲', 部位: '腿部', 护甲等级: '轻' }, 已装备: true, 装备槽位: '腿部', 防御力: 1, 品质: 'Common', 耐久: 18, 最大耐久: 25, 价值: 600, 重量: 0.5 },
@@ -226,12 +153,6 @@ export const createNewGameState = (
             头部: '', 身体: '旧布背心', 手部: '', 腿部: '补丁长裤', 足部: '裂口短靴',
             主手: '磨损短刀', 副手: '', 饰品1: '', 饰品2: '', 饰品3: ''
         };
-
-        pushPrivateMessage(
-            '公会服务台',
-            '冒险者预注册提醒：请尽快前往公会本部缴纳登记费用。近期上层异常频发，务必结伴行动。',
-            '第1日 07:00'
-        );
 
         initialTasks.push({
             id: 'Tsk_001',
@@ -258,11 +179,8 @@ export const createNewGameState = (
         totalHp = 320; // 优化开局状态：满血
         startMind = 60; // 优化开局状态：满精神
         maxMind = 60;
-        phoneBattery = 5;
-        phoneSignal = 2;
 
         initialInventory = [
-            { ...phoneItem, 描述: '屏幕布满裂纹，电量几乎见底。', 品质: 'Broken', 价值: 0 },
             { id: 'Eq_Wpn_X', 名称: '缺口小刀', 描述: '随身破旧的小刀，勉强能用。', 数量: 1, 类型: 'weapon', 武器: { 类型: '小刀', 伤害类型: '斩击', 射程: '近战', 攻速: '快', 双手: false }, 已装备: true, 装备槽位: '主手', 攻击力: 1, 品质: 'Broken', 耐久: 6, 最大耐久: 20, 价值: 0, 重量: 0.4 },
             { id: 'Eq_Arm_X', 名称: '破旧外套', 描述: '缝补多次的旧外套，几乎没有防护力。', 数量: 1, 类型: 'armor', 防具: { 类型: '布甲', 部位: '身体', 护甲等级: '极低' }, 已装备: true, 装备槽位: '身体', 防御力: 0, 品质: 'Broken', 耐久: 8, 最大耐久: 20, 价值: 0 },
             { id: 'Eq_Leg_X', 名称: '破布长裤', 描述: '边缘磨损的破旧长裤。', 数量: 1, 类型: 'armor', 防具: { 类型: '布甲', 部位: '腿部', 护甲等级: '极低' }, 已装备: true, 装备槽位: '腿部', 防御力: 0, 品质: 'Broken', 耐久: 8, 最大耐久: 20, 价值: 0 },
@@ -274,13 +192,6 @@ export const createNewGameState = (
             头部: '', 身体: '破旧外套', 手部: '', 腿部: '破布长裤', 足部: '磨破布鞋',
             主手: '缺口小刀', 副手: '', 饰品1: '', 饰品2: '', 饰品3: ''
         };
-
-        pushPrivateMessage(
-            '系统',
-            '[电量警告] 终端剩余电量 5%。请尽快补充魔力或寻找充能点。',
-            '第1日 07:00',
-            'system'
-        );
 
         initialTasks.push({
             id: 'Tsk_001',
@@ -328,28 +239,7 @@ export const createNewGameState = (
     initialRumors.push({ 主题: "听说洛基眷族正在筹备一次大规模远征。", 传播度: 55 });
     initialRumors.push({ 主题: "东区的贫民窟里住着一位贫穷女神。", 传播度: 35 });
     initialRumors.push({ 主题: "芙蕾雅眷族最近频繁在酒馆露面。", 传播度: 25 });
-
-    // 增加通用公共帖子 (Forum)
-    initialPublicPosts.push({
-        id: 'Forum001', 发布者: '迦尼萨', 头像: '', 时间戳: '第1日 06:00',
-        内容: '我是迦尼萨！怪物祭倒计时 11 天，彩排本周启动！请大家遵守公会安排！#Monsterphilia #我就是迦尼萨',
-        点赞数: 1240, 评论: [{ 用户: '公会职员', 内容: '主神大人请不要再刷屏了...' }],
-        timestampValue: Date.now(),
-        图片描述: '',
-        可见性: 'public',
-        话题: ['公告', '庆典'],
-        来源: '公会公告'
-    });
-    initialPublicPosts.push({
-        id: 'Forum002', 发布者: '洛基眷族官方', 头像: '', 时间戳: '第1日 04:00',
-        内容: '【远征备战】训练强度已上调，非相关人员请勿进入黄昏之馆周边。',
-        点赞数: 860, 评论: [],
-        timestampValue: Date.now() - 10000,
-        图片描述: '',
-        可见性: 'public',
-        话题: ['训练', '远征'],
-        来源: '眷族公告'
-    });
+        
 
     // 4. 生存与身体部位初始化
     const mkPart = (ratio: number) => ({ 当前: Math.floor(totalHp * ratio), 最大: Math.floor(totalHp * ratio) });
@@ -382,11 +272,11 @@ export const createNewGameState = (
     // 生成开局描述 Text
     let introText = "";
     if (difficulty === Difficulty.EASY) {
-        introText = `${playerName}刚抵达巴别塔广场。晨光铺在石砖上，人潮与公会卫队让广场秩序井然，贵宾通道提示在终端上闪烁如同通行印章。
+        introText = `${playerName}刚抵达巴别塔广场。晨光铺在石砖上，人潮与公会卫队让广场秩序井然，贵宾通道提示在公告牌上闪烁如同通行印章。
 
 补给与装备齐整，地图与推荐信被妥善收起，足以支撑一段从容的起步。怪物祭倒计时的公告贴在广场一侧，喧闹声里夹着紧张的节奏。`;
     } else if (difficulty === Difficulty.NORMAL) {
-        introText = `${playerName}踏入巴别塔广场时，人声与铁匠铺的敲击混在一起。基础装备与几份补给勉强齐备，终端弹出的公会登记提醒在手心里微微震动。
+        introText = `${playerName}踏入巴别塔广场时，人声与铁匠铺的敲击混在一起。基础装备与几份补给勉强齐备，公会登记提醒在手心里微微震动。
 
 怪物祭倒计时的通告贴在公告栏，公会旗帜随风摆动。广场的节奏正在加快。`;
     } else if (difficulty === Difficulty.HARD) {
@@ -394,42 +284,10 @@ export const createNewGameState = (
 
 怪物祭倒计时的标语在风里抖动，物价与警戒的阴影逐渐笼罩街区。`;
     } else {
-        introText = `风掠过巴别塔广场的石阶，${playerName}的终端只剩微光。饥饿与寒意沉在身上，卫兵的影子在石砖上拉长，人群的脚步声像潮水。
+        introText = `风掠过巴别塔广场的石阶，${playerName}的徽章只剩微光。饥饿与寒意沉在身上，卫兵的影子在石砖上拉长，人群的脚步声像潮水。
 
 怪物祭倒计时的布告在高处摇晃，喧闹与冷风一同卷过。`;
     }
-
-    const phoneState: PhoneState = {
-        设备: {
-            电量: phoneBattery,
-            当前信号: phoneSignal,
-            状态: phoneBattery <= 0 ? 'offline' : 'online'
-        },
-        联系人: {
-            好友: [],
-            黑名单: [],
-            最近: []
-        },
-        对话: {
-            私聊: initialPrivateThreads,
-            群聊: initialGroupThreads,
-            公共频道: initialPublicThreads
-        },
-        朋友圈: {
-            仅好友可见: true,
-            帖子: initialFriendPosts
-        },
-        公共帖子: {
-            板块: ['公告', '酒馆闲聊', '交易', '求助', '远征', '情报'],
-            帖子: initialPublicPosts
-        },
-        待发送: [],
-        同步规划: [],
-        自动规划: {
-            上次规划: "第1日 07:00",
-            记录: []
-        }
-    };
 
     const state: GameState = {
         当前界面: Screen.GAME,
@@ -494,7 +352,6 @@ export const createNewGameState = (
         战利品背负者: name, 
 
         社交: [],
-        手机: phoneState,
         
         地图: worldMap,
 
@@ -547,7 +404,6 @@ export const createNewGameState = (
         },
         契约: [],
         眷族: { 名称: "无", 等级: "I", 主神: "None", 资金: 0, 声望: 50, 设施状态: {}, 仓库: [] },
-        笔记: [],
         记忆: { lastLogIndex: 0, instant: [], shortTerm: [], mediumTerm: [], longTerm: [] },
         战斗: { 是否战斗中: false, 敌方: null, 战斗记录: [] },
         回合数: 1
@@ -564,9 +420,6 @@ export const mapRawDataToGameState = (raw: RawGameData): GameState => {
     if (data?.角色) {
         data.角色.最大负重 = computeMaxCarry(data.角色);
     }
-   if (!Array.isArray((data as any).笔记)) {
-       (data as any).笔记 = [];
-   }
    if (typeof (data.眷族 as any).声望 !== 'number') {
        const legacy = (data as any).世界?.眷族声望;
        if (typeof legacy === 'number') {
@@ -577,4 +430,8 @@ export const mapRawDataToGameState = (raw: RawGameData): GameState => {
    }
    return data;
 };
+
+
+
+
 

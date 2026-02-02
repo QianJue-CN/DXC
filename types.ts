@@ -8,4 +8,3 @@ export * from './types/story';
 export * from './types/combat';
 export * from './types/ai';
 export * from './types/gamestate';
-export * from './types/notes';

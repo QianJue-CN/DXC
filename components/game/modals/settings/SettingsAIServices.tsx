@@ -11,7 +11,7 @@ interface SettingsAIServicesProps {
 
 export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings, onUpdate, onSave }) => {
     const [localConfig, setLocalConfig] = useState<GlobalAISettings>(settings);
-    const [activeTab, setActiveTab] = useState<'SOCIAL' | 'WORLD' | 'PHONE' | 'NPC_SYNC' | 'NPC_BRAIN'>('SOCIAL');
+    const [activeTab, setActiveTab] = useState<'SOCIAL' | 'WORLD' | 'NPC_SYNC' | 'NPC_BRAIN'>('SOCIAL');
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     useEffect(() => {
@@ -128,7 +128,7 @@ export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings
                 {localConfig.useServiceOverrides === true ? (
                     <div>
                         <div className="flex border-b border-zinc-200 mb-4 overflow-x-auto">
-                            {(['SOCIAL', 'WORLD', 'PHONE', 'NPC_SYNC', 'NPC_BRAIN'] as const).map(tab => (
+                            {(['SOCIAL', 'WORLD', 'NPC_SYNC', 'NPC_BRAIN'] as const).map(tab => (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
@@ -155,15 +155,6 @@ export const SettingsAIServices: React.FC<SettingsAIServicesProps> = ({ settings
                                 onToggle={(enabled) => handleServiceOverrideToggle('world', enabled)}
                             >
                                 <AIConfigForm config={localConfig.services.world} onChange={(c) => handleConfigChange(c, 'world')} disabled={localConfig.serviceOverridesEnabled?.world !== true} />
-                            </ServiceOverridePanel>
-                        )}
-                        {activeTab === 'PHONE' && (
-                            <ServiceOverridePanel
-                                label="手机"
-                                enabled={localConfig.serviceOverridesEnabled?.phone === true}
-                                onToggle={(enabled) => handleServiceOverrideToggle('phone', enabled)}
-                            >
-                                <AIConfigForm config={localConfig.services.phone || localConfig.unified} onChange={(c) => handleConfigChange(c, 'phone')} disabled={localConfig.serviceOverridesEnabled?.phone !== true} />
                             </ServiceOverridePanel>
                         )}
                         {activeTab === 'NPC_SYNC' && (

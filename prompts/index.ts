@@ -15,7 +15,5 @@ export * from './physiology';
 export * from './social';
 export * from './loot';
 export * from './familia'; // Export new module
-export * from './phone';
 export * from './commands';
 export * from './glossary';
-export * from './phone_sync';

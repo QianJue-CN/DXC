@@ -1,19 +1,17 @@
 ﻿
-import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, MemoryEntry, LogEntry, AIResponse, PhoneAIResponse, ContextModuleConfig, ContextModuleType, InventoryItem, Task, MemoryConfig, PhoneMessage, PhonePost, PhoneState, PhoneThread, MemorySystem, WorldMapData } from "../types";
+import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, MemoryEntry, LogEntry, AIResponse, ContextModuleConfig, ContextModuleType, InventoryItem, Task, MemoryConfig, MemorySystem, WorldMapData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 import { 
     P_SYS_FORMAT, P_SYS_CORE, P_SYS_STATS, P_SYS_LEVELING, P_SYS_COMBAT,
-    P_WORLD_FOUNDATION, P_WORLD_DUNGEON, P_WORLD_DUNGEON_SPAWN, P_WORLD_PHONE, P_WORLD_ECO, P_WORLD_GUILD_REG, P_WORLD_FACTIONS, P_WORLD_EQUIPMENT, P_WORLD_IF_BELL_NO_H, P_WORLD_IF_NO_BELL, P_WORLD_IF_DAY3, P_DYN_NPC, P_NPC_MEMORY, P_WORLD_NEWS, P_WORLD_DENATUS, P_WORLD_RUMORS, P_WORLD_EVENTS, P_DYN_MAP, P_MAP_DISCOVERY,
+    P_WORLD_FOUNDATION, P_WORLD_DUNGEON, P_WORLD_DUNGEON_SPAWN, P_WORLD_ECO, P_WORLD_GUILD_REG, P_WORLD_FACTIONS, P_WORLD_EQUIPMENT, P_WORLD_IF_BELL_NO_H, P_WORLD_IF_NO_BELL, P_WORLD_IF_DAY3, P_DYN_NPC, P_NPC_MEMORY, P_WORLD_NEWS, P_WORLD_DENATUS, P_WORLD_RUMORS, P_WORLD_EVENTS, P_DYN_MAP, P_MAP_DISCOVERY,
     P_COT_LOGIC, P_START_REQ, P_MEM_S2M, P_MEM_M2L, P_DATA_STRUCT,
     P_WRITING_REQ, P_WORLD_VALUES, P_LOOT_SYSTEM,
     P_PHYSIOLOGY_EASY, P_PHYSIOLOGY_NORMAL, P_PHYSIOLOGY_HARD, P_PHYSIOLOGY_HELL,
     P_DIFFICULTY_EASY, P_DIFFICULTY_NORMAL, P_DIFFICULTY_HARD, P_DIFFICULTY_HELL,
     P_JUDGMENT_EASY, P_JUDGMENT_NORMAL, P_JUDGMENT_HARD, P_JUDGMENT_HELL,
     P_ACTION_OPTIONS, P_FAMILIA_JOIN, P_STORY_GUIDE,
-    P_PHONE_SYSTEM, P_PHONE_COT,
     P_SYS_FORMAT_MULTI, P_COT_LOGIC_MULTI,
     P_SYS_COMMANDS, P_SYS_GLOSSARY,
-    P_PHONE_SYNC_ENABLED, P_PHONE_SYNC_DISABLED
 } from "../prompts";
 import { Difficulty } from "../types/enums";
 
@@ -34,7 +32,6 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     { id: 'world_dungeon_law', name: '1. 地下城绝对法则', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_DUNGEON, order: 20 },
     { id: 'world_dungeon_spawn', name: '1.1 地下城刷怪逻辑', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_DUNGEON_SPAWN, order: 20.5 },
     { id: 'world_guild_reg', name: '2. 公会与登记流程', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_GUILD_REG, order: 21 },
-    { id: 'world_phone', name: '3. 魔石通讯终端', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_PHONE, order: 22 },
     { id: 'world_eco_social', name: '4. 经济与社会', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_ECO, order: 23 },
     { id: 'world_factions', name: '5. 派阀与战争游戏', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_FACTIONS, order: 23.5 },
     { id: 'world_equipment', name: '6. 装备与道具', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_EQUIPMENT, order: 23.8 },
@@ -113,15 +110,6 @@ const buildCotPrompt = (settings: AppSettings): string => {
     if (base && base.isActive !== false) return base.content;
     const fallback = modules.find(m => m.isActive);
     return fallback ? fallback.content : "";
-};
-
-const isPhoneSyncPlanEnabled = (settings: AppSettings): boolean => {
-    const aiCfg = settings?.aiConfig;
-    if (!aiCfg) return false;
-    const overridesEnabled = aiCfg.useServiceOverrides ?? aiCfg.mode === 'separate';
-    if (!overridesEnabled) return false;
-    const overrideFlags = aiCfg.serviceOverridesEnabled || {};
-    return (overrideFlags as any)?.phone ?? (aiCfg.mode === 'separate');
 };
 
 
@@ -276,22 +264,22 @@ export const parseAIResponseText = (
     }
 
     const baseCandidate = candidates[0]?.text ?? cleaned;
-    const repairNotes: string[] = [];
+    const repairLog: string[] = [];
 
     const trimmed = baseCandidate.trim();
     let repairedText = trimmed;
 
     const commaRepair = removeTrailingCommas(repairedText);
     repairedText = commaRepair.text;
-    if (commaRepair.changed) repairNotes.push("已移除尾随逗号");
+    if (commaRepair.changed) repairLog.push("已移除尾随逗号");
 
     const braceRepair = balanceJsonBraces(repairedText);
     repairedText = braceRepair.text;
-    if (braceRepair.changed) repairNotes.push("已补齐缺失括号");
+    if (braceRepair.changed) repairLog.push("已补齐缺失括号");
 
     try {
         const parsed = JSON.parse(repairedText);
-        const note = repairNotes.length > 0 ? repairNotes.join("，") : "已自动修复JSON结构";
+        const note = repairLog.length > 0 ? repairLog.join("，") : "已自动修复JSON结构";
         return { response: parsed as AIResponse, repaired: true, repairNote: note };
     } catch (err: any) {
         return { repaired: false, error: lastError?.message || err?.message || "JSON解析失败" };
@@ -351,7 +339,7 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
                 简介: c.简介, 外貌: c.外貌,
                 生存数值: c.生存数值 || "需生成",
                 能力值: c.能力值 || "需生成",
-                隐藏基础能力: c.隐藏基础能力 || "需生成",
+                隐藏基础能力: c.隐藏基础能力值 || "需生成",
                 装备: c.装备 || "需生成",
                 背包: c.背包 || [],
                 最近记忆: focusMemories
@@ -535,230 +523,6 @@ const parseGameTimeLabel = (timestamp?: string) => {
         ? (day * 24 * 60) + (hour * 60) + minute
         : null;
     return { dayLabel, timeLabel, sortValue };
-};
-
-export const constructPhoneContext = (phoneState: PhoneState | undefined, params: any): string => {
-    let output = "[手机通讯 (Phone)]\n";
-    if (!phoneState) return output + "（终端未接入）";
-
-    const device = phoneState.设备 || { 电量: 0, 当前信号: 0 };
-    const battery = typeof device.电量 === 'number' ? device.电量 : 0;
-    const signal = typeof device.当前信号 === 'number' ? device.当前信号 : 0;
-    const status = device.状态 || (battery <= 0 ? 'offline' : 'online');
-
-    output += `终端状态: 电量 ${battery}%, 信号 ${signal}/4, 状态 ${status}\n`;
-
-    const friends = Array.isArray(phoneState.联系人?.好友) ? phoneState.联系人.好友 : [];
-    const recent = Array.isArray(phoneState.联系人?.最近) ? phoneState.联系人.最近 : [];
-    if (friends.length > 0) output += `好友: ${friends.join(', ')}\n`;
-    if (recent.length > 0) output += `最近联系人: ${recent.join(', ')}\n`;
-
-    const perThreadLimit = typeof params?.perThreadLimit === 'number'
-        ? params.perThreadLimit
-        : (typeof params?.perTargetLimit === 'number' ? params.perTargetLimit : 10);
-    const includeMoments = params?.includeMoments !== false;
-    const momentLimit = typeof params?.momentLimit === 'number' ? params.momentLimit : 6;
-    const includePublicPosts = params?.includePublicPosts !== false;
-    const forumLimit = typeof params?.forumLimit === 'number' ? params.forumLimit : 6;
-
-    const targetFilter = Array.isArray(params?.targets) && params.targets.length > 0 ? new Set(params.targets) : null;
-    const targetLimits = params?.targetLimits || {};
-    const playerName = params?.playerName || 'Player';
-
-    const getSortValue = (m: PhoneMessage) => {
-        if (typeof m.timestampValue === 'number') return m.timestampValue;
-        const parsed = parseGameTimeLabel(m.时间戳);
-        if (parsed.sortValue !== null) return parsed.sortValue;
-        return 0;
-    };
-
-    const formatMessage = (m: PhoneMessage) => {
-        const time = m.时间戳 || '';
-        const sender = m.发送者 || '未知';
-        let content = m.内容 || '';
-        if (m.图片描述) content += ` (图片: ${m.图片描述})`;
-        if (m.引用?.内容) {
-            const quoteSender = m.引用.发送者 ? `${m.引用.发送者}: ` : '';
-            content += ` (引用: ${quoteSender}${m.引用.内容})`;
-        }
-        return `[${time}] ${sender}: ${content}`;
-    };
-
-    const buildThreadBlock = (label: string, threads: PhoneThread[], applyFilter: boolean) => {
-        if (!threads || threads.length === 0) return;
-        output += `${label}:\n`;
-        threads.forEach(t => {
-            if (applyFilter && targetFilter && !targetFilter.has(t.标题)) return;
-            const limitOverride = typeof targetLimits?.[t.标题] === 'number' ? targetLimits[t.标题] : perThreadLimit;
-            const messages = Array.isArray(t.消息) ? t.消息.slice().sort((a, b) => getSortValue(a) - getSortValue(b)) : [];
-            const trimmed = limitOverride > 0 ? messages.slice(-limitOverride) : messages;
-            if (trimmed.length === 0) return;
-            const idTag = t.id ? `, id:${t.id}` : '';
-            output += `- ${t.标题} (${t.类型}${idTag})\n`;
-            if (t.摘要) {
-                const summaryStamp = t.摘要时间 ? ` 截至 ${t.摘要时间}` : '';
-                output += `  [摘要${summaryStamp}] ${t.摘要}\n`;
-            }
-            trimmed.forEach(m => {
-                output += `  ${formatMessage(m)}\n`;
-            });
-        });
-    };
-
-    buildThreadBlock("私聊", phoneState.对话?.私聊 || [], true);
-    buildThreadBlock("群聊", phoneState.对话?.群聊 || [], false);
-    buildThreadBlock("公共频道", phoneState.对话?.公共频道 || [], false);
-
-    if (includeMoments && Array.isArray(phoneState.朋友圈?.帖子)) {
-        const friendSet = new Set(friends);
-        const feed = phoneState.朋友圈?.仅好友可见
-            ? phoneState.朋友圈.帖子.filter(p => p.发布者 === playerName || friendSet.has(p.发布者))
-            : phoneState.朋友圈.帖子;
-        const sorted = [...feed].sort((a, b) => (a.timestampValue || 0) - (b.timestampValue || 0));
-        const trimmed = momentLimit > 0 ? sorted.slice(-momentLimit) : sorted;
-        if (trimmed.length > 0) {
-            output += "朋友圈动态:\n";
-            trimmed.forEach(m => {
-                const tags = Array.isArray(m.话题) && m.话题.length > 0 ? ` #${m.话题.join(' #')}` : '';
-                output += `- [${m.时间戳 || ''}] ${m.发布者}: ${m.内容}${tags}\n`;
-            });
-        }
-    }
-
-    if (includePublicPosts && Array.isArray(phoneState.公共帖子?.帖子)) {
-        const sorted = [...phoneState.公共帖子.帖子].sort((a, b) => (a.timestampValue || 0) - (b.timestampValue || 0));
-        const trimmed = forumLimit > 0 ? sorted.slice(-forumLimit) : sorted;
-        if (trimmed.length > 0) {
-            output += "公共论坛:\n";
-            trimmed.forEach(p => {
-                const tag = Array.isArray(p.话题) && p.话题.length > 0 ? ` [${p.话题.join('/')}]` : '';
-                output += `- [${p.时间戳 || ''}] ${p.发布者}${tag}: ${p.内容}\n`;
-            });
-        }
-    }
-
-    if (Array.isArray(phoneState.待发送) && phoneState.待发送.length > 0) {
-        const pendingItems = phoneState.待发送.slice(0, 6).map(p => {
-            const sender = p.payload?.发送者 || '未知';
-            const title = p.threadTitle || p.threadId || '未知线程';
-            const contentRaw = p.payload?.内容 || '';
-            const content = contentRaw.replace(/\s+/g, ' ').trim();
-            const snippet = content ? (content.length > 60 ? `${content.slice(0, 60)}…` : content) : '（无正文）';
-            const triggerLabel = p.trigger ? ' / 触发' : '';
-            return `[${p.deliverAt}] ${title} ${sender}: ${snippet}${triggerLabel}`;
-        });
-        output += `\n待发送队列(未送达/玩家未知): ${pendingItems.join(' | ')}${phoneState.待发送.length > 6 ? ' ...' : ''}`;
-    }
-
-    const plan = phoneState.自动规划;
-    if (plan?.上次规划) {
-        output += `\n自动规划: 上次 ${plan.上次规划}`;
-    }
-    if (Array.isArray(plan?.记录) && plan!.记录!.length > 0) {
-        const planBrief = plan!.记录!.slice(-3).map(p => `${p.时间} ${p.内容}`).join(' | ');
-        output += `\n自动规划记录: ${planBrief}`;
-    }
-
-    return output.trim();
-};
-
-const constructPhoneSocialBrief = (confidants: Confidant[] = []): string => {
-    const list = confidants
-        .filter(c => c.已交换联系方式)
-        .map(c => ({
-            姓名: c.姓名,
-            关系: c.关系状态,
-            是否在场: !!c.是否在场,
-            位置: c.位置详情 || '未知'
-        }));
-    return `[手机联系人摘要]\n${list.length > 0 ? JSON.stringify(list, null, 2) : '（暂无已交换联系方式的联系人）'}`;
-};
-
-const constructPhoneTrackingBrief = (gameState: GameState): string => {
-    const tracks = Array.isArray(gameState.世界?.NPC后台跟踪) ? gameState.世界.NPC后台跟踪 : [];
-    if (tracks.length === 0) return `[NPC后台跟踪(仅用于触发/节奏，不可直述)]\n（暂无在跟踪的NPC行动）`;
-    const contactSet = new Set((gameState.社交 || []).filter(c => c.已交换联系方式).map(c => c.姓名));
-    const specialSet = new Set((gameState.社交 || []).filter(c => c.特别关注).map(c => c.姓名));
-    const hasFilter = contactSet.size > 0 || specialSet.size > 0;
-    const filtered = tracks.filter(t => !hasFilter || contactSet.has(t.NPC) || specialSet.has(t.NPC));
-    const trimmed = (filtered.length > 0 ? filtered : tracks).slice(0, 8).map(t => ({
-        NPC: t.NPC,
-        当前行动: t.当前行动,
-        位置: t.位置,
-        进度: t.进度,
-        预计完成: t.预计完成
-    }));
-    return `[NPC后台跟踪(仅用于触发/节奏，不可直述)]\n${JSON.stringify(trimmed, null, 2)}`;
-};
-
-const constructPhoneStoryBrief = (gameState: GameState): string => {
-    const story = gameState.剧情 || ({} as any);
-    const main = story.主线 || {};
-    const guide = story.引导 || {};
-    return `[剧情摘要(仅供节奏，不可直接写入消息)]\n主线: ${main.当前阶段 || '未知'} / ${main.关键节点 || '未知'}\n引导目标: ${guide.当前目标 || '未知'}`;
-};
-
-const constructPhoneEnvironmentBrief = (gameState: GameState): string => {
-    return `[当前环境]\n时间: ${gameState.当前日期 || ''} ${gameState.游戏时间 || ''}\n地点: ${gameState.当前地点 || '未知'} / 楼层: ${gameState.当前楼层 ?? '未知'} / 天气: ${gameState.天气 || '未知'}`;
-};
-
-const constructPhoneWorldBrief = (gameState: GameState): string => {
-    const world = gameState.世界 || ({} as any);
-    const news = Array.isArray(world.头条新闻) ? world.头条新闻.slice(0, 5) : [];
-    const rumors = Array.isArray(world.街头传闻) ? world.街头传闻.slice(0, 5) : [];
-    return `[世界情报摘要(仅供氛围，不可直接写入消息)]\n头条: ${news.length > 0 ? news.join(' / ') : '无'}\n传闻: ${rumors.length > 0 ? rumors.join(' / ') : '无'}`;
-};
-
-const constructPhoneWorldview = (settings: AppSettings): string => {
-    const modules = (settings.promptModules || [])
-        .filter(m => m.group === '世界观设定' && m.isActive)
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    if (modules.length === 0) return '';
-    return `[世界观设定]\n${modules.map(m => m.content).join('\n\n')}`;
-};
-
-const constructPhoneMemoryBrief = (memory: MemorySystem | undefined): string => {
-    if (!memory) return '';
-    const isPhoneMemory = (entry?: string) => !!entry && (entry.includes('【手机】') || entry.includes('手机'));
-    const short = Array.isArray(memory.shortTerm)
-        ? memory.shortTerm.filter(m => isPhoneMemory(m.content)).slice(-8)
-        : [];
-    const medium = Array.isArray(memory.mediumTerm)
-        ? memory.mediumTerm.filter(isPhoneMemory).slice(-4)
-        : [];
-    const long = Array.isArray(memory.longTerm)
-        ? memory.longTerm.filter(isPhoneMemory).slice(-2)
-        : [];
-    if (short.length === 0 && medium.length === 0 && long.length === 0) return '';
-    const shortText = short.length > 0
-        ? short.map(s => `${s.timestamp || ''} ${s.content}`.trim()).join(' | ')
-        : '无';
-    const mediumText = medium.length > 0 ? medium.join(' | ') : '无';
-    const longText = long.length > 0 ? long.join(' | ') : '无';
-    return `[记忆摘要]\n短期: ${shortText}\n中期: ${mediumText}\n长期: ${longText}`;
-};
-
-export const assemblePhonePrompt = (
-    playerInput: string,
-    gameState: GameState,
-    settings: AppSettings
-): string => {
-    const phoneContext = constructPhoneContext(gameState.手机, { perThreadLimit: 10, includeMoments: true, includePublicPosts: true, forumLimit: 6, playerName: gameState.角色?.姓名 || 'Player' });
-    const socialBrief = constructPhoneSocialBrief(gameState.社交);
-    const envBrief = constructPhoneEnvironmentBrief(gameState);
-    const worldview = constructPhoneWorldview(settings);
-    const memoryBrief = constructPhoneMemoryBrief(gameState.记忆);
-    const cot = P_PHONE_COT || "";
-    return [
-        P_PHONE_SYSTEM,
-        cot,
-        worldview,
-        envBrief,
-        memoryBrief,
-        socialBrief,
-        phoneContext,
-        `[用户输入]\n${playerInput}`
-    ].filter(Boolean).join('\n\n');
 };
 
 export const constructCombatContext = (combat: any, params: any): string => {
@@ -1056,8 +820,6 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
                 }
             }
             let content = sorted.map(m => m.content).join('\n\n');
-            const phoneSyncPrompt = isPhoneSyncPlanEnabled(settings) ? P_PHONE_SYNC_ENABLED : P_PHONE_SYNC_DISABLED;
-            if (phoneSyncPrompt) content += "\n\n" + phoneSyncPrompt;
             if (settings.enableActionOptions) content += "\n\n" + P_ACTION_OPTIONS;
             return content;
 
@@ -1090,8 +852,6 @@ export const generateSingleModuleContext = (mod: ContextModuleConfig, gameState:
                 gameState.战利品背负者,
                 mod.params
             );
-        case 'PHONE_CONTEXT':
-            return constructPhoneContext(gameState.手机, { ...mod.params, playerName: gameState.角色?.姓名 || 'Player' });
         case 'TASK_CONTEXT':
             return constructTaskContext(gameState.任务, mod.params);
         case 'FAMILIA_CONTEXT':
@@ -1171,8 +931,7 @@ export const assembleFullPrompt = (
         'STORY_CONTEXT',
         'WORLD_CONTEXT',
         'FAMILIA_CONTEXT',
-        'CONTRACT_CONTEXT',
-        'PHONE_CONTEXT'
+        'CONTRACT_CONTEXT'
     ];
     const handledTypes = new Set<ContextModuleType>([...orderedTypes, 'COMMAND_HISTORY', 'USER_INPUT']);
 
@@ -1412,54 +1171,6 @@ export const generateDungeonMasterResponse = async (
     }
 };
 
-export const generatePhoneResponse = async (
-    input: string,
-    gameState: GameState,
-    settings: AppSettings,
-    signal?: AbortSignal
-): Promise<PhoneAIResponse> => {
-    const systemPrompt = assemblePhonePrompt(input, gameState, settings);
-    const userContent = `Phone Input: "${input}"\n请仅输出JSON。`;
-    const config = resolveServiceConfig(settings, 'phone');
-
-    let rawText = "";
-    try {
-        rawText = await dispatchAIRequest(
-            config,
-            systemPrompt,
-            userContent,
-            undefined,
-            { responseFormat: 'json', signal }
-        );
-        if (!rawText || !rawText.trim()) throw new Error("AI returned empty response.");
-        const extractedThinking = extractThinkingBlocks(rawText).thinking;
-        const parsedResult = parseAIResponseText(rawText);
-        if (parsedResult.response) {
-            const parsed = parsedResult.response as PhoneAIResponse;
-            const parsedThinking = mergeThinkingSegments(parsed as any);
-            return {
-                ...parsed,
-                rawResponse: rawText,
-                thinking: parsedThinking || extractedThinking,
-                ...(parsedResult.repairNote ? { repairNote: parsedResult.repairNote } : {})
-            };
-        }
-        return {
-            allowed: false,
-            blocked_reason: `JSON解析失败: ${parsedResult.error || "未知错误"}`,
-            rawResponse: rawText
-        };
-    } catch (error: any) {
-        if (error?.name === 'AbortError' || /abort/i.test(error?.message || '')) throw error;
-        const rawBlock = rawText ? `\n\n【原始AI消息】\n${rawText}` : "";
-        return {
-            allowed: false,
-            blocked_reason: `系统错误: ${error.message}${rawBlock}`,
-            rawResponse: rawText || error.message
-        };
-    }
-};
-
 export const generateWorldInfoResponse = async (
     input: string,
     gameState: GameState,
@@ -1511,3 +1222,5 @@ export const generateWorldInfoResponse = async (
         };
     }
 };
+
+

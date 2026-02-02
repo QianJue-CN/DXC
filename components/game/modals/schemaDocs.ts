@@ -238,19 +238,6 @@
         }
     },
     {
-        title: "11. 手机系统 (Phone)",
-        path: "gameState.手机",
-        desc: "聊天、朋友圈与公共论坛。",
-        structure: {
-            "设备": "{电量, 当前信号, 状态}",
-            "联系人": "{好友[], 黑名单[], 最近[]}",
-            "对话": "{私聊[], 群聊[], 公共频道[]}",
-            "朋友圈": "{仅好友可见, 帖子[]}",
-            "公共帖子": "{板块?, 帖子[]}",
-            "待发送": "Array<PhonePendingMessage>?"
-        }
-    },
-    {
         title: "12. 剧情与契约 (Story & Contract)",
         path: "gameState.剧情 / gameState.契约",
         desc: "剧情推进与契约。",
@@ -298,22 +285,8 @@
             "mediumTerm": "String[]",
             "longTerm": "String[]"
         }
-    },
-    {
-        title: "16. 笔记系统 (Notes)",
-        path: "gameState.笔记",
-        desc: "玩家自定义情报笔记。",
-        structure: "Array<NoteEntry>",
-        itemStructure: {
-            "id": "String",
-            "标题": "String",
-            "内容": "String",
-            "标签": "String[]?",
-            "时间戳": "String",
-            "更新时间": "String?",
-            "重要": "Boolean?"
-        }
     }
 ];
+
 
 

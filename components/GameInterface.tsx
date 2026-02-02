@@ -17,7 +17,6 @@ import { SettingsModal } from './game/modals/SettingsModal';
 import { SaveManagerModal } from './game/modals/SaveManagerModal';
 import { EquipmentModal } from './game/modals/EquipmentModal';
 import { SocialModal } from './game/modals/SocialModal';
-import { SocialPhoneModal } from './game/modals/SocialPhoneModal';
 import { TasksModal } from './game/modals/TasksModal';
 import { SkillsModal } from './game/modals/SkillsModal';
 import { StoryModal } from './game/modals/StoryModal';
@@ -29,7 +28,6 @@ import { PartyModal } from './game/modals/PartyModal';
 import { MemoryModal } from './game/modals/MemoryModal';
 import { DynamicWorldModal } from './game/modals/DynamicWorldModal';
 import { MemorySummaryModal } from './game/modals/MemorySummaryModal';
-import { NotesModal } from './game/modals/NotesModal';
 
 import { useGameLogic } from '../hooks/useGameLogic';
 import { buildPreviewState } from '../utils/previewState';
@@ -47,7 +45,6 @@ type ActiveModal =
     | 'EQUIPMENT'
     | 'SETTINGS'
     | 'SOCIAL'
-    | 'PHONE'
     | 'TASKS'
     | 'SKILLS'
     | 'STORY'
@@ -59,7 +56,6 @@ type ActiveModal =
     | 'MEMORY'
     | 'WORLD'
     | 'SAVE_MANAGER'
-    | 'NOTES'
     | null;
 
 export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialState }) => {
@@ -67,14 +63,12 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
       gameState, setGameState,
       settings, saveSettings,
       commandQueue, pendingCommands, addToQueue, removeFromQueue,
-      currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming, isPhoneProcessing, phoneProcessingThreadId, phoneProcessingScope,
+      currentOptions, lastAIResponse, lastAIThinking, isProcessing, isStreaming,
       draftInput, setDraftInput,
       memorySummaryState, confirmMemorySummary, applyMemorySummary, cancelMemorySummary,
-      handlePlayerAction, handlePlayerInput, handleSendMessage, handleCreateMoment, handleCreatePublicPost, handleCreateThread, handleMarkThreadRead, handleSilentWorldUpdate, handleWaitForPhoneReply, handleSubmitPhoneOps,
+      handlePlayerAction, handlePlayerInput, handleSilentWorldUpdate,
       stopInteraction, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite,
       manualSave, loadGame, handleReroll, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory,
-      handleEditPhoneMessage, handleDeletePhoneMessage,
-      phoneNotifications,
   } = useGameLogic(initialState, onExit);
 
   // Modal States
@@ -127,7 +121,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
   };
 
   const isHellMode = gameState.游戏难度 === Difficulty.HELL;
-  const hasMagicPhone = (gameState.背包 || []).some(item => item.名称 === '魔石通讯终端');
   const activeCommands = isProcessing ? pendingCommands : commandQueue;
 
   const previewState = useMemo(
@@ -140,10 +133,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
   );
 
   const activeTaskCount = (gameState.任务 || []).filter(t => t.状态 === 'active').length;
-  const unreadPhoneCount = (gameState.手机?.对话
-      ? [...(gameState.手机?.对话?.私聊 || []), ...(gameState.手机?.对话?.群聊 || []), ...(gameState.手机?.对话?.公共频道 || [])]
-            .reduce((sum, t) => sum + (t.未读 || 0), 0)
-      : 0);
   const partyCount = (gameState.社交 || []).filter(c => c.是否队友).length + 1;
   const presentCount = (gameState.社交 || []).filter(c => c.是否在场).length;
   const inventoryWeight = computeInventoryWeight(previewState.背包 || []);
@@ -188,16 +177,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
         className="w-full h-dvh flex flex-col bg-zinc-950 overflow-hidden relative" 
         style={{ backgroundImage: settings.backgroundImage ? `url(${settings.backgroundImage})` : "url('https://www.transparenttextures.com/patterns/carbon-fibre.png')" }}
     >
-        {phoneNotifications.length > 0 && (
-            <div className="absolute top-4 right-4 z-50 space-y-2 pointer-events-none">
-                {phoneNotifications.map(note => (
-                    <div key={note.id} className="bg-black/90 border border-blue-500 text-white px-4 py-2 rounded shadow-lg text-xs">
-                        <div className="font-bold uppercase tracking-widest text-blue-300">{note.title}</div>
-                        <div className="text-zinc-300 mt-1">{note.message}</div>
-                    </div>
-                ))}
-            </div>
-        )}
         <div className="hidden md:flex flex-col h-full">
             <TopNav 
                 time={gameState.游戏时间} 
@@ -223,7 +202,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         onOpenTasks={() => setActiveModal('TASKS')}
                         onOpenSkills={() => setActiveModal('SKILLS')}
                         onOpenLibrary={() => openSettings('LIBRARY')}
-                        onOpenPhone={() => hasMagicPhone && setActiveModal('PHONE')}
                         onOpenWorld={() => setActiveModal('WORLD')}
                         onOpenFamilia={() => setActiveModal('FAMILIA')}
                         onOpenStory={() => setActiveModal('STORY')}
@@ -234,19 +212,14 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         onOpenParty={() => setActiveModal('PARTY')}
                         onOpenSaveManager={() => setActiveModal('SAVE_MANAGER')}
                         isHellMode={isHellMode}
-                        hasPhone={hasMagicPhone}
-                        phoneProcessing={isPhoneProcessing}
-                        phoneProcessingScope={phoneProcessingScope}
                         summary={{
                             activeTasks: activeTaskCount,
-                            unreadMessages: unreadPhoneCount,
                             partySize: partyCount,
                             presentCount,
                             inventoryWeight: Math.round(inventoryWeight * 10) / 10,
                             maxCarry: Math.round(maxCarry * 10) / 10,
                             lootCount
                         }}
-                        onOpenNotes={() => setActiveModal('NOTES')}
                     />
                 </div>
             </div>
@@ -286,14 +259,12 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                      <MobileMenuOverlay 
                         isOpen={true} 
                         onClose={() => setMobileActiveTab('CHAT')}
-                        hasPhone={hasMagicPhone}
                         actions={{
                             onOpenSettings: () => openSettings('MAIN'),
                             onOpenEquipment: () => setActiveModal('EQUIPMENT'),
                             onOpenSocial: () => setActiveModal('SOCIAL'),
                             onOpenTasks: () => setActiveModal('TASKS'),
                             onOpenSkills: () => setActiveModal('SKILLS'),
-                            onOpenPhone: () => hasMagicPhone && setActiveModal('PHONE'),
                             onOpenWorld: () => setActiveModal('WORLD'),
                             onOpenFamilia: () => setActiveModal('FAMILIA'),
                             onOpenStory: () => setActiveModal('STORY'),
@@ -304,7 +275,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                             onOpenMemory: () => setActiveModal('MEMORY'),
                             onOpenLibrary: () => openSettings('LIBRARY'),
                             onOpenParty: () => setActiveModal('PARTY'),
-                            onOpenNotes: () => setActiveModal('NOTES'),
                         }}
                      />
                  )}
@@ -339,28 +309,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             confidants={gameState.社交}
             onAddToQueue={addToQueue}
             onUpdateConfidant={handleUpdateConfidant}
-        />
-
-        <SocialPhoneModal 
-            isOpen={activeModal === 'PHONE'}
-            onClose={closeModal}
-            phoneState={gameState.手机}
-            contacts={gameState.社交}
-            npcTracking={gameState.世界?.NPC后台跟踪}
-            playerName={gameState.角色.姓名}
-            hasPhone={hasMagicPhone}
-            onSendMessage={handleSendMessage}
-            onEditMessage={handleEditPhoneMessage}
-            onDeleteMessage={handleDeletePhoneMessage}
-            onCreateThread={handleCreateThread}
-            onReadThread={handleMarkThreadRead}
-            onCreateMoment={(content, imageDesc) => handleCreateMoment(content, imageDesc)}
-            onCreatePublicPost={(content, imageDesc, topic) => handleCreatePublicPost(content, imageDesc, topic)}
-            onWaitReply={handleWaitForPhoneReply}
-            onSubmitPhoneOps={handleSubmitPhoneOps}
-            isPhoneProcessing={isPhoneProcessing}
-            phoneProcessingThreadId={phoneProcessingThreadId}
-            phoneProcessingScope={phoneProcessingScope}
         />
 
         {/* Updated Tasks Modal */}
@@ -425,13 +373,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
             memory={gameState.记忆}
             logs={gameState.日志}
             onUpdateMemory={(mem) => setGameState({...gameState, 记忆: mem})} 
-        />
-
-        <NotesModal
-            isOpen={activeModal === 'NOTES'}
-            onClose={closeModal}
-            notes={gameState.笔记}
-            onUpdateNotes={(notes) => setGameState(prev => ({ ...prev, 笔记: notes }))}
         />
 
         <DynamicWorldModal 

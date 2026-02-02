@@ -1,18 +1,16 @@
 
 import React from 'react';
-import { X, Users, ClipboardList, Zap, Settings, Smartphone, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Swords, Archive, HardDrive, StickyNote, Database } from 'lucide-react';
+import { X, Users, ClipboardList, Zap, Settings, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Swords, Archive, HardDrive, Database } from 'lucide-react';
 
 interface MobileMenuOverlayProps {
     isOpen: boolean;
     onClose: () => void;
-    hasPhone?: boolean;
     actions: {
         onOpenSettings: () => void;
         onOpenEquipment: () => void;
         onOpenSocial: () => void;
         onOpenTasks: () => void;
         onOpenSkills: () => void;
-        onOpenPhone: () => void;
         onOpenWorld: () => void;
         onOpenFamilia: () => void;
         onOpenStory: () => void;
@@ -21,13 +19,12 @@ interface MobileMenuOverlayProps {
         onOpenLootVault: () => void;
         onOpenSaveManager: () => void;
         onOpenMemory: () => void;
-        onOpenNotes: () => void;
         onOpenLibrary: () => void;
         onOpenParty: () => void;
     };
 }
 
-export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, onClose, actions, hasPhone = true }) => {
+export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, onClose, actions }) => {
     if (!isOpen) return null;
 
     const menuItems = [
@@ -39,7 +36,6 @@ export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, on
         
         { label: "队伍", icon: <Swords />, action: actions.onOpenParty, color: "bg-indigo-900/80 border-indigo-700" },
         { label: "社交", icon: <Users />, action: actions.onOpenSocial, color: "bg-pink-900/80 border-pink-700" },
-        { label: "手机", icon: <Smartphone />, action: actions.onOpenPhone, color: "bg-blue-900/80 border-blue-700", disabled: !hasPhone },
         { label: "眷族", icon: <Flag />, action: actions.onOpenFamilia, color: "bg-blue-800/80 border-blue-600" },
 
         { label: "任务", icon: <ClipboardList />, action: actions.onOpenTasks, color: "bg-amber-900/80 border-amber-700" },
@@ -50,7 +46,6 @@ export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, on
 
         { label: "世界", icon: <Globe />, action: actions.onOpenWorld, color: "bg-cyan-900/80 border-cyan-700" },
         { label: "记忆", icon: <Brain />, action: actions.onOpenMemory, color: "bg-emerald-900/80 border-emerald-700" },
-        { label: "笔记", icon: <StickyNote />, action: actions.onOpenNotes, color: "bg-cyan-900/80 border-cyan-700" },
         { label: "资料库", icon: <Database />, action: actions.onOpenLibrary, color: "bg-emerald-900/80 border-emerald-700" },
         { label: "系统", icon: <Settings />, action: actions.onOpenSettings, color: "bg-black border-2 border-white" },
     ];
@@ -81,11 +76,10 @@ export const MobileMenuOverlay: React.FC<MobileMenuOverlayProps> = ({ isOpen, on
                             <button
                                 key={idx}
                                 onClick={() => {
-                                    if (item.disabled) return;
                                     item.action();
                                     onClose();
                                 }}
-                                className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl shadow-lg border active:scale-95 transition-all group ${item.color} ${item.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                className={`aspect-square flex flex-col items-center justify-center gap-2 rounded-2xl shadow-lg border active:scale-95 transition-all group ${item.color}`}
                             >
                                 <div className="text-white opacity-80 group-hover:scale-110 transition-transform group-hover:opacity-100">{item.icon}</div>
                                 <span className="text-[10px] font-bold uppercase text-white tracking-wide shadow-black drop-shadow-md">{item.label}</span>

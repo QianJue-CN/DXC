@@ -1,4 +1,3 @@
-
 import { GeoPoint } from './world';
 import { InventoryItem } from './item';
 
@@ -24,12 +23,12 @@ export interface Confidant {
   性格?: string; // personality
   背景?: string; // background
   
-  好感度: number;
-  关系状态: string; // relationshipStatus
+  好感度?: number;
+  关系状态?: string; // relationshipStatus
   
   // 状态标识
   是否在场?: boolean; // isPresent
-  已交换联系方式: boolean; // hasContactInfo
+  已交换联系方式?: boolean; // hasContactInfo
   特别关注: boolean; // isSpecialAttention
   强制包含上下文?: boolean; // forceIncludeInContext
   
@@ -47,14 +46,14 @@ export interface Confidant {
   等级: string | number; 
   已知能力?: string; // knownAbilities
 
-  // 战斗数值 (Vitals)
+  // 生存数值 (Vitals)
   生存数值?: {
       当前生命: number; 最大生命: number;
       当前精神: number; 最大精神: number;
       当前体力: number; 最大体力: number;
   };
 
-  // 基础能力 (Stats)
+  // 能力值 (Stats)
   能力值?: { 
       力量: number | string;
       耐久: number | string;
@@ -62,7 +61,7 @@ export interface Confidant {
       敏捷: number | string;
       魔力: number | string;
   };
-  隐藏基础能力?: {
+  隐藏基础能力值?: {
       力量: number | string;
       耐久: number | string;
       灵巧: number | string;
@@ -83,112 +82,4 @@ export interface Confidant {
 
   // 独立背包
   背包?: InventoryItem[]; 
-}
-
-export interface PhoneMessage {
-  id: string;
-  发送者: string;
-  内容: string;
-  时间戳: string; // Display string "第X日 HH:MM"
-  timestampValue?: number; // Sorting value
-  类型?: 'text' | 'system' | 'image' | string;
-  状态?: 'pending' | 'sent' | 'received' | 'read' | 'failed' | string;
-  图片描述?: string;
-  表情包?: string;
-  媒体类型?: 'image' | 'sticker' | string;
-  送达时间?: string; // 计划送达的游戏时间（第X日 HH:MM）
-  延迟分钟?: number; // 便于调试/展示
-  引用?: { id?: string; 内容?: string; 发送者?: string };
-}
-
-export interface PhonePendingMessage {
-  id: string;
-  threadId: string;
-  threadTitle?: string;
-  threadType: 'private' | 'group' | 'public';
-  deliverAt: string; // 游戏时间
-  payload: PhoneMessage;
-  status?: 'scheduled' | 'delivered' | 'canceled';
-  trigger?: {
-    locations?: string[];
-    confidants?: string[];
-    storyKeywords?: string[];
-    taskIds?: string[];
-    worldKeywords?: string[];
-  };
-}
-
-export interface PhonePlanEntry {
-  时间: string;
-  内容: string;
-  类型?: 'auto' | 'sync' | 'manual' | string;
-}
-
-export interface PhoneAutoPlanState {
-  上次规划?: string;
-  记录?: PhonePlanEntry[];
-}
-
-export interface PhoneSyncPlanEntry {
-  时间: string;
-  内容: any;
-  类型?: 'story' | 'world' | string;
-}
-
-export interface PhoneThread {
-  id: string;
-  类型: 'private' | 'group' | 'public';
-  标题: string;
-  成员: string[];
-  消息: PhoneMessage[];
-  未读?: number;
-  置顶?: boolean;
-  备注?: string;
-  摘要?: string;
-  摘要时间?: string;
-  摘要更新时间?: number;
-}
-
-export interface PhonePost {
-  id: string;
-  发布者: string;
-  头像?: string;
-  内容: string;
-  时间戳: string;
-  timestampValue?: number;
-  点赞数: number;
-  评论: { 用户: string; 内容: string }[];
-  图片描述?: string; 
-  可见性: 'friends' | 'public';
-  话题?: string[];
-  来源?: string;
-}
-
-export interface PhoneState {
-  设备: {
-    电量: number;
-    当前信号: number;
-    状态?: 'online' | 'offline' | 'silent' | string;
-  };
-  联系人: {
-    好友: string[];
-    黑名单?: string[];
-    最近?: string[];
-  };
-  对话: {
-    私聊: PhoneThread[];
-    群聊: PhoneThread[];
-    公共频道: PhoneThread[];
-  };
-  朋友圈: {
-    仅好友可见: boolean;
-    帖子: PhonePost[];
-  };
-  公共帖子: {
-    板块?: string[];
-    帖子: PhonePost[];
-  };
-  待发送?: PhonePendingMessage[];
-  自动规划?: PhoneAutoPlanState;
-  同步规划?: PhoneSyncPlanEntry[];
 }

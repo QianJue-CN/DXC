@@ -17,7 +17,6 @@ export interface GlobalAISettings {
     world: AIEndpointConfig;
     npcSync: AIEndpointConfig;
     npcBrain: AIEndpointConfig;
-    phone?: AIEndpointConfig;
   };
   useServiceOverrides?: boolean;
   serviceOverridesEnabled?: {
@@ -25,9 +24,7 @@ export interface GlobalAISettings {
     world?: boolean;
     npcSync?: boolean;
     npcBrain?: boolean;
-    phone?: boolean;
   };
-  enablePhoneSyncPlan?: boolean;
   multiStageThinking?: boolean;
   nativeThinkingChain?: boolean;
 }
@@ -35,19 +32,18 @@ export interface GlobalAISettings {
 export interface LogEntry {
   id: string;
   text: string;
-  sender: string; 
+  sender: string;
   timestamp: number;
-  turnIndex?: number; // 楼层号/回合数
-  rawResponse?: string; // 原始 JSON 响应，用于编辑
-  thinking?: string; // AI思考内容（<thinking>解析结果）
-  snapshot?: string; // 状态快照 (JSON string of GameState BEFORE this log), 用于回滚
+  turnIndex?: number; // 回合序号
+  rawResponse?: string; // 原始 JSON 响应，用于调试
+  thinking?: string; // AI 思考内容（<thinking> 解析结果）
+  snapshot?: string; // 状态快照（本条日志之前的 GameState JSON），用于回滚
   isRaw?: boolean; // 标记是否为原始流式数据
-  responseId?: string; // AI响应分组ID
+  responseId?: string; // AI 响应分组 ID
   repairNote?: string; // 本地修复提示
-  gameTime?: string; // NEW: 游戏内完整时间 "YYYY-MM-DD HH:MM"
+  gameTime?: string; // 游戏内完整时间 "YYYY-MM-DD HH:MM"
   tags?: string[]; // 自定义标签
 }
-
 export interface MemoryEntry {
     content: string;
     timestamp: string;
@@ -59,10 +55,10 @@ export interface MemorySystem {
     // 即时消息上下文将从 logs[lastLogIndex] 开始构建。
     lastLogIndex: number;
 
-    // 即时消息：不再直接存储，而是通过 lastLogIndex 动态计算
+    // 即时消息：不再直接存储，而是通过 lastLogIndex 动态计算。
     instant?: LogEntry[]; // Deprecated but kept for type safety in old code if needed
         
-    // 短期记忆：每轮的总结概括
+    // 短期记忆：每回合的总结摘要
     shortTerm: MemoryEntry[]; 
     
     // 中期记忆：当短期记忆达到数量限制时，对短期记忆的总结
@@ -71,7 +67,6 @@ export interface MemorySystem {
     // 长期记忆：当中期记忆达到数量限制时，对中期记忆的总结
     longTerm: string[];    
 }
-
 export type PromptUsage = 'CORE' | 'START' | 'MEMORY_S2M' | 'MEMORY_M2L';
 
 export interface PromptModule {
@@ -94,14 +89,13 @@ export interface MemoryConfig {
 export interface WritingConfig {
     /** 是否启用字数要求 */
     enableWordCountRequirement: boolean;
-    /** 要求的正文字数，默认800 */
+    /** 要求的正文字数，默认 800 */
     requiredWordCount: number;
-    /** 是否启用写作人称管理 */
+    /** 是否启用叙事人称管理 */
     enableNarrativePerspective: boolean;
     /** 人称模式：'third' 第三人称，'first' 第一人称，'second' 第二人称 */
     narrativePerspective: 'third' | 'first' | 'second';
 }
-
 // --- New Context Management Types (V2) ---
 
 export type ContextModuleType = 
@@ -112,7 +106,6 @@ export type ContextModuleType =
     'MEMORY_CONTEXT' | 
     'COMMAND_HISTORY' | 
     'USER_INPUT' |
-    'PHONE_CONTEXT' |
     'INVENTORY_CONTEXT' | // Merged Loot/Inventory
     'WORLD_CONTEXT' |
     'FAMILIA_CONTEXT' |
@@ -170,35 +163,20 @@ export interface AIResponse {
   action_options?: ActionOption[];
   shortTerm?: string; // NEW: Replaces 'summary'. Represents the memory entry for this turn.
   rawResponse?: string;
-  thinking?: string; // AI思考内容（<thinking>解析结果）
+  thinking?: string; // AI 思考内容（<thinking> 解析结果）
   thinking_pre?: string; // 第一段思考
   thinking_post?: string; // 第二段思考
   thinking_plan?: string; // 剧情预先思考（多重思考）
   thinking_style?: string; // 文风思考
-  thinking_draft?: string; // 剧情草稿（多重思考）
+  thinking_draft?: string; // 剧情草案（多重思考）
   thinking_check?: string; // 剧情合理性校验
   thinking_canon?: string; // 原著思考
   thinking_vars_pre?: string; // 变量预思考
   thinking_vars_other?: string; // 其他功能变量更新思考
-  thinking_vars_merge?: string; // 变量融入剧情矫正
+  thinking_vars_merge?: string; // 变量融入剧情修正
   thinking_gap?: string; // 查缺补漏思考
-  thinking_vars_post?: string; // 变量矫正思考
+  thinking_vars_post?: string; // 变量修正思考
   thinking_story?: string; // 完整剧情（多重思考）
   narrative?: string; // Optional for legacy support
   repairNote?: string; // 本地修复提示
-  phone_sync_plan?: any; // 手机剧情同步指令（JSON 字段）
-}
-
-export interface PhoneAIResponse {
-  allowed: boolean;
-  blocked_reason?: string;
-  messages?: any[];
-  phone_updates?: any;
-  tavern_commands?: TavernCommand[];
-  short_memory?: string[];
-  time_advance_minutes?: number;
-  thread_summaries?: { threadId: string; summary: string }[];
-  rawResponse?: string;
-  thinking?: string;
-  repairNote?: string;
 }
