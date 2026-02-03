@@ -18,23 +18,18 @@ export interface Confidant {
   眷族: string;
   身份: '冒险者' | '神明' | '平民' | string; 
   
-  简介?: string; // intro
-  外貌?: string; // appearance
-  性格?: string; // personality
-  背景?: string; // background
+  档案?: string; // combined profile
   
   好感度?: number;
   关系状态?: string; // relationshipStatus
   
   // 状态标识
   是否在场?: boolean; // isPresent
-  已交换联系方式?: boolean; // hasContactInfo
   特别关注: boolean; // isSpecialAttention
   强制包含上下文?: boolean; // forceIncludeInContext
   
   // 动态数据
   坐标?: GeoPoint; 
-  位置详情?: string; // locationDetail
   
   // 记忆系统
   记忆: InteractionMemory[];

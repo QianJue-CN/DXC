@@ -336,7 +336,7 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             const fullData = {
                 ...baseInfo,
                 ...coordInfo,
-                简介: c.简介, 外貌: c.外貌,
+                档案: c.档案,
                 生存数值: c.生存数值 || "需生成",
                 能力值: c.能力值 || "需生成",
                 隐藏基础能力: c.隐藏基础能力值 || "需生成",
@@ -350,8 +350,7 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             const focusData = {
                 ...baseInfo,
                 ...coordInfo,
-                简介: c.简介, 外貌: c.外貌, 背景: c.背景,
-                位置详情: c.位置详情,
+                档案: c.档案,
                 最近记忆: isPresent ? focusMemories : formatMemories(specialAbsentMemoriesRaw)
             };
             focusChars.push(JSON.stringify(focusData));
@@ -359,7 +358,7 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             const presentData = {
                 ...baseInfo,
                 ...coordInfo,
-                外貌: c.外貌,
+                档案: c.档案,
                 最近记忆: lastMemories
             };
             presentChars.push(JSON.stringify(presentData));

@@ -9,6 +9,19 @@ interface PresentCharactersModalProps {
   characters: Confidant[];
 }
 
+const isAdventurer = (c: Confidant) =>
+  typeof c.身份 === 'string' && c.身份.includes('冒险者');
+
+const getLevelLabel = (c: Confidant) =>
+  isAdventurer(c) ? `Lv.${c.等级 || "???"}` : '非冒险者';
+
+const getLocationLabel = (c: Confidant) => {
+  if (c.坐标 && typeof c.坐标.x === 'number' && typeof c.坐标.y === 'number') {
+    return `X:${c.坐标.x} Y:${c.坐标.y}`;
+  }
+  return c.是否在场 ? '当前位置附近' : '位置未知';
+};
+
 export const PresentCharactersModal: React.FC<PresentCharactersModalProps> = ({ isOpen, onClose, characters }) => {
   if (!isOpen) return null;
 
@@ -41,17 +54,17 @@ export const PresentCharactersModal: React.FC<PresentCharactersModalProps> = ({ 
                             <div className="flex justify-between items-start mb-1">
                                 <h3 className="text-white font-bold text-lg truncate">{c.姓名}</h3>
                                 <span className="text-teal-500 font-mono text-sm border border-teal-900 px-2 rounded">
-                                    Lv.{c.等级 || "???"}
+                                    {getLevelLabel(c)}
                                 </span>
                             </div>
                             
                             <div className="flex items-center gap-2 text-zinc-400 text-xs mb-3">
                                 <MapPin size={12} />
-                                <span className="uppercase tracking-wider">{c.位置详情 || "未知位置"}</span>
+                                <span className="uppercase tracking-wider">{getLocationLabel(c)}</span>
                             </div>
 
                             {/* Vitals Bars (Mock if undefined, or use real data) */}
-                            {c.身份 === '冒险者' ? (
+                            {isAdventurer(c) ? (
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase font-bold">
                                         <Heart size={10} className="text-red-500"/> HP

@@ -10,6 +10,12 @@ interface PartyModalProps {
   characters: Confidant[];
 }
 
+const isAdventurer = (c: Confidant) =>
+  typeof c.身份 === 'string' && c.身份.includes('冒险者');
+
+const getLevelLabel = (c: Confidant) =>
+  isAdventurer(c) ? `Lv.${c.等级 || '???'}` : '非冒险者';
+
 export const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, characters }) => {
   if (!isOpen) return null;
 
@@ -66,7 +72,7 @@ export const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, charact
                                     {c.姓名}
                                 </div>
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 flex gap-2">
-                                    <span>LV.{c.等级}</span>
+                                    <span>{getLevelLabel(c)}</span>
                                     <span>{c.身份}</span>
                                 </div>
                             </div>
@@ -102,12 +108,11 @@ export const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, charact
                                  <span className="flex items-center gap-1"><Dna size={14}/> {selectedMember.种族}</span>
                                  <span className="flex items-center gap-1"><User size={14}/> {selectedMember.性别}</span>
                                  <span className="flex items-center gap-1"><Clock size={14}/> {selectedMember.年龄}岁</span>
-                                 <span className="px-2 bg-red-900 text-white text-xs rounded">{selectedMember.眷族}</span>
                              </div>
                          </div>
                          <div className="text-right">
                              <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest">等级</div>
-                             <div className="text-4xl font-display text-white">{selectedMember.等级}</div>
+                             <div className="text-4xl font-display text-white">{getLevelLabel(selectedMember)}</div>
                          </div>
                      </div>
 

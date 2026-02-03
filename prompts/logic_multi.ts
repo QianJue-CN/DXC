@@ -257,7 +257,7 @@ export const P_COT_LOGIC_MULTI = `<COT预思考协议>
     - 明确拾取/装入公共包/交给背负者 → push gameState.公共战利品。
     - 明确分配/归档 → push gameState.战利品 或 gameState.眷族.仓库（需完整 InventoryItem 结构）。
   - 发展能力/技能/魔法：仅在叙事明确习得/觉醒时 push，字段必须完整。
-  - 社交与在场：set 是否在场/位置详情；好感度用 add；新 NPC 用 push。
+  - 社交与在场：set 是否在场/坐标；好感度用 add；新 NPC 用 push。
   - NPC 记忆更新：**只要发生互动**（对话/交易/战斗/委托/简短问候），就必须
     \`push gameState.社交[i].记忆\`，并确保“最后一条记忆=本次互动”。
   - NPC 后台跟踪：当 NPC **主动提出要去做事/约定某时完成**，或**玩家委托导致 NPC 离场**时，

@@ -152,7 +152,6 @@ const migrateNpcActionsToTracking = (state: GameState): GameState => {
                 existing.push({
                     NPC: c.姓名,
                     当前行动: c.当前行动,
-                    位置: c.位置详情,
                     预计完成: undefined,
                     进度: undefined
                 });
