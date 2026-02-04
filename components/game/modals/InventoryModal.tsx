@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Package, Shield, Sword, Box, Gem, ArrowRightCircle, LogOut, Beaker, Leaf, Star, Moon } from 'lucide-react';
+import { Package, Shield, Sword, Box, Gem, ArrowRightCircle, LogOut, Beaker, Leaf, Moon } from 'lucide-react';
 import { InventoryItem } from '../../../types';
 import { getItemCategory, getDefaultEquipSlot, getTypeLabel, normalizeQuality, getQualityLabel, isWeaponItem, isArmorItem } from '../../../utils/itemUtils';
 
@@ -20,18 +20,133 @@ const DurabilityRing: React.FC<{ current: number; max: number }> = ({ current, m
   const deg = percent * 3.6;
   const color = percent < 25 ? '#ef4444' : percent < 60 ? '#f59e0b' : '#22c55e';
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div
-        className="relative w-10 h-10 rounded-full"
-        style={{ background: `conic-gradient(${color} ${deg}deg, rgba(24,24,27,0.8) 0deg)` }}
-      >
-        <div className="absolute inset-1 rounded-full bg-black flex items-center justify-center text-[9px] font-mono text-zinc-200">
-          {current}/{max}
-        </div>
+    <div
+      className="relative w-7 h-7 rounded-full"
+      style={{ background: `conic-gradient(${color} ${deg}deg, rgba(24,24,27,0.8) 0deg)` }}
+    >
+      <div className="absolute inset-[3px] rounded-full bg-black flex items-center justify-center text-[7px] font-mono text-zinc-200">
+        {current}/{max}
       </div>
-      <div className="text-[10px] text-zinc-500 uppercase">耐久</div>
     </div>
   );
+};
+
+type DetailRow = { label: string; value: string };
+type DetailSection = { title: string; rows: DetailRow[] };
+
+const toText = (value: unknown): string => {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (Array.isArray(value)) {
+    return value
+      .map(v => (v === undefined || v === null ? '' : String(v)))
+      .filter(v => v.trim().length > 0)
+      .join(' / ');
+  }
+  const text = String(value);
+  return text.trim().length > 0 ? text : '';
+};
+
+const pushRow = (rows: DetailRow[], label: string, value: unknown) => {
+  const text = toText(value);
+  if (text) rows.push({ label, value: text });
+};
+
+const buildItemDetailSections = (item: InventoryItem, qualityLabel: string): DetailSection[] => {
+  const sections: DetailSection[] = [];
+
+  const baseRows: DetailRow[] = [];
+  pushRow(baseRows, '类型', getTypeLabel(item.类型));
+  pushRow(baseRows, '品质', qualityLabel);
+  pushRow(baseRows, '稀有度', item.稀有度);
+  pushRow(baseRows, '数量', item.数量);
+  pushRow(baseRows, '获取途径', item.获取途径);
+  pushRow(baseRows, '装备槽位', item.装备槽位);
+  if (item.已装备 !== undefined) pushRow(baseRows, '已装备', item.已装备);
+  pushRow(baseRows, '是否绑定', item.是否绑定);
+  pushRow(baseRows, '堆叠上限', item.堆叠上限);
+  pushRow(baseRows, '价值', item.价值);
+  pushRow(baseRows, '重量', item.重量);
+  pushRow(baseRows, '等级需求', item.等级需求);
+  pushRow(baseRows, '来源', item.来源);
+  pushRow(baseRows, '制作者', item.制作者);
+  pushRow(baseRows, '材质', item.材质);
+  pushRow(baseRows, '标签', item.标签);
+  if (baseRows.length) sections.push({ title: '基础信息', rows: baseRows });
+
+  const combatRows: DetailRow[] = [];
+  pushRow(combatRows, '攻击力', item.攻击力);
+  pushRow(combatRows, '防御力', item.防御力);
+  pushRow(combatRows, '恢复量', item.恢复量);
+  if (combatRows.length) sections.push({ title: '战斗数值', rows: combatRows });
+
+  const effectRows: DetailRow[] = [];
+  pushRow(effectRows, '效果', item.效果);
+  if (item.攻击特效) pushRow(effectRows, '攻击特效', item.攻击特效);
+  if (item.防御特效) pushRow(effectRows, '防御特效', item.防御特效);
+  if (effectRows.length) sections.push({ title: '特效', rows: effectRows });
+
+  if (item.附加属性 && item.附加属性.length > 0) {
+    const affixRows = item.附加属性.map(stat => ({
+      label: stat.名称,
+      value: stat.数值
+    }));
+    sections.push({ title: '附加属性', rows: affixRows });
+  }
+
+  if (item.武器) {
+    const weaponRows: DetailRow[] = [];
+    pushRow(weaponRows, '类型', item.武器.类型);
+    pushRow(weaponRows, '伤害类型', item.武器.伤害类型);
+    pushRow(weaponRows, '射程', item.武器.射程);
+    pushRow(weaponRows, '攻速', item.武器.攻速);
+    if (item.武器.双手 !== undefined) pushRow(weaponRows, '双手', item.武器.双手);
+    pushRow(weaponRows, '特性', item.武器.特性);
+    if (weaponRows.length) sections.push({ title: '武器', rows: weaponRows });
+  }
+
+  if (item.防具) {
+    const armorRows: DetailRow[] = [];
+    pushRow(armorRows, '类型', item.防具.类型);
+    pushRow(armorRows, '部位', item.防具.部位);
+    pushRow(armorRows, '护甲等级', item.防具.护甲等级);
+    pushRow(armorRows, '抗性', item.防具.抗性);
+    if (armorRows.length) sections.push({ title: '防具', rows: armorRows });
+  }
+
+  if (item.消耗) {
+    const consumeRows: DetailRow[] = [];
+    pushRow(consumeRows, '类别', item.消耗.类别);
+    pushRow(consumeRows, '持续', item.消耗.持续);
+    pushRow(consumeRows, '冷却', item.消耗.冷却);
+    pushRow(consumeRows, '副作用', item.消耗.副作用);
+    if (consumeRows.length) sections.push({ title: '消耗', rows: consumeRows });
+  }
+
+  if (item.材料) {
+    const materialRows: DetailRow[] = [];
+    pushRow(materialRows, '来源', item.材料.来源);
+    pushRow(materialRows, '用途', item.材料.用途);
+    pushRow(materialRows, '处理', item.材料.处理);
+    if (materialRows.length) sections.push({ title: '材料', rows: materialRows });
+  }
+
+  if (item.魔剑) {
+    const magicRows: DetailRow[] = [];
+    pushRow(magicRows, '魔法名称', item.魔剑.魔法名称);
+    pushRow(magicRows, '属性', item.魔剑.属性);
+    pushRow(magicRows, '威力', item.魔剑.威力);
+    pushRow(magicRows, '触发方式', item.魔剑.触发方式);
+    pushRow(magicRows, '冷却', item.魔剑.冷却);
+    pushRow(magicRows, '剩余次数', item.魔剑.剩余次数);
+    pushRow(magicRows, '最大次数', item.魔剑.最大次数);
+    pushRow(magicRows, '破损率', item.魔剑.破损率);
+    pushRow(magicRows, '过载惩罚', item.魔剑.过载惩罚);
+    pushRow(magicRows, '备注', item.魔剑.备注);
+    if (magicRows.length) sections.push({ title: '魔剑', rows: magicRows });
+  }
+
+  return sections;
 };
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({ 
@@ -210,6 +325,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               const durMax = item.最大耐久 ?? 100;
               const hasDurability = item.耐久 !== undefined;
               const isBroken = hasDurability && durCurrent <= 0;
+              const detailSections = buildItemDetailSections(item, qualityLabel);
 
               return (
                 <div 
@@ -226,7 +342,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                   </div>
 
                   {hasDurability && (
-                    <div className="absolute top-3 left-3">
+                    <div className="absolute bottom-3 right-3 pointer-events-none">
                       <DurabilityRing current={durCurrent} max={durMax} />
                     </div>
                   )}
@@ -250,46 +366,39 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                           </span>
                         )}
                       </div>
-                      {item.价值 !== undefined && (
-                        <div className="mt-1 text-[10px] text-yellow-500 font-mono">
-                          价值: {item.价值}
-                        </div>
-                      )}
                     </div>
                   </div>
 
-                  <div className="flex-1 px-4 pb-2 flex flex-col gap-2">
+                  <div className={`flex-1 px-4 pb-2 flex flex-col gap-2 ${hasDurability ? 'pr-10 pb-10' : ''}`}>
                     <p className="text-xs text-cyan-100/80 italic font-serif leading-relaxed">
                       “{item.描述}”
                     </p>
 
-                    <div className="grid grid-cols-2 gap-1 text-xs font-mono bg-black/40 p-2 border border-blue-900/30 group-hover:border-cyan-500/30 transition-colors">
-                      {item.攻击力 !== undefined && <span className="text-red-400">攻击 {item.攻击力}</span>}
-                      {item.防御力 !== undefined && <span className="text-blue-400">防御 {item.防御力}</span>}
-                      {item.恢复量 !== undefined && <span className="text-green-400">恢复 {item.恢复量}</span>}
-                      {item.魔剑 && (
-                        <span className="text-purple-300 col-span-2">
-                          魔剑 {item.魔剑.剩余次数 ?? "?"}/{item.魔剑.最大次数 ?? "?"}
-                        </span>
-                      )}
-                      {item.附加属性 && item.附加属性.map((s, i) => (
-                        <span key={i} className="col-span-2 text-[10px] text-cyan-300 flex items-center gap-1">
-                          <Star size={8} fill="currentColor"/> {s.名称} {s.数值}
-                        </span>
-                      ))}
-                    </div>
-
-                    {(item.效果 || item.攻击特效) && (
-                      <div className="text-[10px] text-zinc-300 space-y-1">
-                        {item.效果 && <div><span className="text-zinc-500">效果:</span> {item.效果}</div>}
-                        {item.攻击特效 && item.攻击特效 !== "无" && (
-                          <div className="text-red-400 font-bold uppercase">特效: {item.攻击特效}</div>
-                        )}
+                    {detailSections.length > 0 && (
+                      <div className="space-y-2 text-[10px] font-mono">
+                        {detailSections.map((section, sectionIndex) => (
+                          <div
+                            key={`${section.title}-${sectionIndex}`}
+                            className="bg-black/40 p-2 border border-blue-900/30 group-hover:border-cyan-500/30 transition-colors"
+                          >
+                            <div className="text-[9px] uppercase tracking-widest text-zinc-500 mb-1">
+                              {section.title}
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                              {section.rows.map((row, rowIndex) => (
+                                <div key={`${section.title}-${rowIndex}`} className="flex justify-between gap-2">
+                                  <span className="text-zinc-500">{row.label}</span>
+                                  <span className="text-zinc-200 text-right break-words">{row.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
 
-                  <div className="px-4 pb-4 mt-auto flex gap-2">
+                  <div className="px-4 pb-4 mt-auto flex gap-2 pr-12">
                     {(isWeaponItem(item) || isArmorItem(item)) && (
                       item.已装备 ? (
                         <ActionButton onClick={() => handleUnequipClick(item)} label="卸下" color="yellow" icon={<LogOut size={14}/>} />

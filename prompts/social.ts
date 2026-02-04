@@ -9,10 +9,6 @@ export const P_DYN_NPC = `<动态世界与在场>
    - 若 NPC 不在当前地点：
      \`set gameState.社交[index].是否在场 false\`
 
-2. **动态事件**:
-   - 朋友圈动态生成: "阿波罗眷族在广场举行宴会"（需满足好友条件）。
-   - 公共论坛帖子: "公会发布临时公告"。
-   - 私聊推送: 关系好的 NPC 发来问候。
 </动态世界与在场>`;
 
 export const P_NPC_MEMORY = `<NPC记忆写入法则>
