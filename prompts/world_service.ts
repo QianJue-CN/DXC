@@ -8,16 +8,13 @@ export const P_WORLD_SERVICE = `<世界情报更新协议>
 4. 输出必须是单一 JSON 对象，遵循数据同步协议；\`logs\` 可为空数组，\`shortTerm\` 可为空字符串。
 
 ## 世界变量结构（只读路径）
-- \`gameState.世界.异常指数\`
-- \`gameState.世界.头条新闻\`
+- \`gameState.世界.地下城异常指数\`
+- \`gameState.世界.公会官方通告\`
 - \`gameState.世界.街头传闻\`
-- \`gameState.世界.诸神神会\`
 - \`gameState.世界.NPC后台跟踪\`
-- \`gameState.世界.派阀格局\`
 - \`gameState.世界.战争游戏\`
 - \`gameState.世界.下次更新\`
 
 ## 玩家信息结构（只读）
 - \`gameState.角色\` 的完整字段以【玩家信息】JSON 为准，不得修改。
-
 </世界情报更新协议>`;

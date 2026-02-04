@@ -1,4 +1,4 @@
-﻿export const P_DATA_STRUCT = `<数据结构定义>
+export const P_DATA_STRUCT = `<数据结构定义>
 # 【数据结构定义】DanMachi SaveData (V3.1 Chinese Native)
 
 > 本文档定义了游戏状态树的**完整**结构。AI 在生成 \`tavern_commands\` 时必须**严格遵守**此路径和字段定义。
@@ -12,7 +12,6 @@
 - \`gameState.当前地点\`: String (中文地名，如 "欧拉丽南大街")
 - \`gameState.当前楼层\`: Number (0=地表, 1+=地下层数)
 - \`gameState.天气\`: String ("晴朗", "小雨" 等)
-- \`gameState.世界坐标\`: { "x": Number, "y": Number } (绝对坐标)
 
 ## 2. 玩家状态核心 (gameState.角色)
 **基础信息**
@@ -132,11 +131,9 @@
 - \`材料\`: { "来源", "用途", "处理" }
 - \`魔剑\`: { "魔法名称", "属性", "威力", "触发方式", "冷却", "剩余次数", "最大次数", "破损率", "过载惩罚", "备注" }
 
-## 4. 战利品相关
-- \`gameState.战利品\`: Array<InventoryItem> (已归档战利品)
+## 4. 公共战利品 (gameState.公共战利品)
 - \`gameState.公共战利品\`: Array<InventoryItem> (探索中的临时战利品)
-- \`gameState.战利品背负者\`: String
-- 说明: 公共战利品 = 地下城临时/已拾取但未分配；战利品 = 眷族/仓库归档。战利品一般情况下不进入背包，除非叙事明确分配/拾取。
+- 说明: 公共战利品 = 地下城临时/已拾取但未分配；未明确分配前不进入背包。
 
 ## 5. 社交系统 (gameState.社交)
 *Array<Confidant>*
@@ -154,7 +151,6 @@
 - \`是否在场\`: Boolean
 - \`是否队友\`: Boolean
 - \`特别关注\`: Boolean
-- \`坐标\`: { "x": Number, "y": Number }
 - \`记忆\`: Array<{ "内容": String, "时间戳": String }>
 - \`档案\`: String
 - 档案需覆盖「身份定位/外貌要点/性格特征/背景经历/与玩家关系或当前状态」。
@@ -198,22 +194,18 @@
 - \`日志\`: Array<{ "时间戳": String, "内容": String }>
 
 ## 9. 世界动态 (gameState.世界)
-- \`gameState.世界.异常指数\`: Number (0-100)
-- \`gameState.世界.头条新闻\`: String[]
-- \`gameState.世界.街头传闻\`: Array<{ "主题": String, "传播度": Number }>
-- \`gameState.世界.诸神神会\`: { "下次神会开启时间": String, "神会主题": String, "讨论内容": Array<{ "角色": String, "对话": String }>, "最终结果": String }
+- \`gameState.世界.地下城异常指数\`: Number (0-100)
+- \`gameState.世界.公会官方通告\`: String[]
+- \`gameState.世界.街头传闻\`: Array<{ "主题": String, "广为人知日": String, "风波平息日": String }>
 - \`gameState.世界.NPC后台跟踪\`: Array<{ "NPC": String, "当前行动": String, "地点?": String, "位置?": String, "进度?": String, "预计完成?": String, "计划阶段?": String[], "当前阶段?": Number, "阶段结束时间?": String }>
-- \`gameState.世界.派阀格局\`: { "S级": String[], "A级": String[], "B级至I级": String[], "备注": String }
 - \`gameState.世界.战争游戏\`: { "状态": String, "参战眷族": String[], "形式": String, "赌注": String, "举办时间": String, "结束时间": String, "结果": String, "备注": String }
 - \`gameState.世界.下次更新\`: String（每回合需确认是否已经抵达下次更新时间，若抵达则更具体的日期如：第一日 18:00）
 
-## 10. 地图系统 (gameState.地图)
-- 坐标单位：像素坐标（每个地图层独立坐标系）
-- \`gameState.地图.world\`: { "id", "name", "bounds": { "width", "height" }, "center": { "x", "y" }, "size": { "width", "height", "unit?" }, "locations": Array<{ "id", "name", "center": { "x", "y" }, "size": { "width", "height", "unit?" } }> }
-- \`gameState.地图.regions\`: Array<{ "id", "name", "worldLocationId", "bounds": { "width", "height" }, "center": { "x", "y" }, "size": { "width", "height", "unit?" }, "landmarks": Array<{ "id", "name", "position": { "x", "y" }, "radius?", "type?", "description?" }>, "buildings": Array<{ "id", "name", "description", "type?" }>, "dungeonId?" }>
-- \`gameState.地图.buildings\`: { [buildingId]: { "id", "regionId", "name", "description?", "bounds": { "width", "height" }, "anchor": { "x", "y" }, "layout": { "scale?", "width", "height", "rooms", "furniture", "entrances", "notes?" } } }
-- \`gameState.地图.dungeons\`: { [dungeonId]: { "id", "regionId", "name", "description?", "entrance": { "x", "y" }, "floors": Array<{ "floor", "bounds": { "width", "height" }, "rooms": Array<{ "id", "name", "type?", "x", "y", "width", "height", "discovered?", "description?" }>, "edges": Array<{ "id", "from", "to", "points": Array<{ "x", "y" }>, "discovered?", "type?" }> }> } }
-- \`gameState.地图.current\`: { "mode": "WORLD|REGION|BUILDING|DUNGEON", "regionId?", "buildingId?", "dungeonId?", "floor?" }
+## 10. 地点系统 (gameState.地图)
+- \`gameState.地图.macroLocations\`: Array<{ "id", "名称", "地点?", "描述?", "内容?" }>
+- \`gameState.地图.midLocations\`: Array<{ "id", "名称", "描述?", "归属?", "内部建筑?" }>
+- \`gameState.地图.smallLocations\`: Array<{ "id", "名称", "描述?", "归属?" }>
+- \`gameState.地图.current\`: { "macroId?", "midId?", "smallId?" }
 
 ## 11. 剧情进度 (gameState.剧情)
 - \`gameState.剧情.对应原著对应章节\`: String
@@ -224,7 +216,7 @@
 - \`gameState.剧情.待激活事件\`: Array<{ "事件": String, "激活时间": String, "激活条件": String }>
 
 ## 12. 契约系统 (gameState.契约)
-- \`gameState.契约\`: Array<{ "id", "名称", "描述", "状态", "条款" }>
+- \`gameState.契约\`: Array<{ "id", "名称", "描述", "状态", "条款", "开始时间?", "结束时间?", "结束条件?", "违约代价?", "备注?" }>
 
 ## 13. 眷族信息 (gameState.眷族)
 - \`gameState.眷族.名称\`: String
@@ -236,27 +228,3 @@
 - \`gameState.眷族.仓库\`: Array<InventoryItem>
 
 </数据结构定义>`;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

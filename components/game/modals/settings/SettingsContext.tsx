@@ -225,7 +225,7 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
                                             <div className="space-y-4">
                                                 <div className="bg-white p-3 border border-zinc-200 rounded flex items-center justify-between">
                                                     <div>
-                                                        <div className="text-xs font-bold text-zinc-600">地下城地图常驻</div>
+                                                        <div className="text-xs font-bold text-zinc-600">地点情报常驻</div>
                                                         <div className="text-[10px] text-zinc-400">关闭后仅在触发词出现时插入</div>
                                                     </div>
                                                     <button
@@ -242,7 +242,7 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
                                                         value={Array.isArray(activeModule.params.triggerKeywords) ? activeModule.params.triggerKeywords.join(',') : ''}
                                                         onChange={(e) => handleUpdateParams(activeModule.id, 'triggerKeywords', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
                                                         className="w-full border border-zinc-300 rounded p-1 text-xs bg-transparent"
-                                                        placeholder="前往,地图,地形"
+                                                        placeholder="前往,地点,建筑"
                                                     />
                                                 </div>
                                             </div>
@@ -324,3 +324,4 @@ export const SettingsContext: React.FC<SettingsContextProps> = ({ settings, onUp
         </div>
     );
 };
+

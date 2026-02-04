@@ -1,6 +1,6 @@
 ﻿
 import React from 'react';
-import { Briefcase, Users, ClipboardList, Zap, Settings, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, Archive, HardDrive, Scale, Database } from 'lucide-react';
+import { Briefcase, Users, ClipboardList, Zap, Settings, Globe, Shield, BookOpen, Scroll, Flag, Gem, Brain, Radar, Swords, HardDrive, Scale, Database } from 'lucide-react';
 import { MenuButton } from './right/MenuButton';
 
 interface RightPanelProps {
@@ -15,7 +15,6 @@ interface RightPanelProps {
     onOpenStory: () => void;
     onOpenContract: () => void;
     onOpenLoot: () => void;
-    onOpenLootVault: () => void;
     onOpenSaveManager: () => void;
     onOpenMemory: () => void;
     onOpenLibrary: () => void;
@@ -44,7 +43,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
     onOpenStory,
     onOpenContract,
     onOpenLoot,
-    onOpenLootVault,
     onOpenSaveManager,
     onOpenMemory,
     onOpenLibrary,
@@ -101,7 +99,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                     {typeof summary.lootCount === 'number' && (
                         <div className="flex items-center gap-2 text-zinc-300 col-span-2">
                             <Gem size={12} className="text-yellow-400" />
-                            <span>战利品</span>
+                            <span>公共战利品</span>
                             <span className="ml-auto text-white">{summary.lootCount}</span>
                         </div>
                     )}
@@ -118,14 +116,6 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 colorClass="bg-zinc-800"
                 hoverColorClass={`${primaryHover} group-hover:border-white`}
                 onClick={onOpenInventory}
-            />
-            <MenuButton 
-                label="战利品仓库"
-                icon={<Archive className="w-5 h-5 lg:w-5 lg:h-5" />} 
-                delay={70} 
-                colorClass="bg-zinc-800"
-                hoverColorClass="group-hover:bg-amber-500 group-hover:border-white"
-                onClick={onOpenLootVault}
             />
             <MenuButton 
                 label="公共战利品"

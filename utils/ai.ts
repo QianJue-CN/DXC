@@ -3,7 +3,7 @@ import { AppSettings, GameState, PromptModule, AIEndpointConfig, Confidant, Memo
 import { GoogleGenAI } from "@google/genai";
 import { 
     P_SYS_FORMAT, P_SYS_CORE, P_SYS_STATS, P_SYS_LEVELING, P_SYS_COMBAT,
-    P_WORLD_FOUNDATION, P_WORLD_DUNGEON, P_WORLD_DUNGEON_SPAWN, P_WORLD_ECO, P_WORLD_GUILD_REG, P_WORLD_FACTIONS, P_WORLD_EQUIPMENT, P_WORLD_IF_BELL_NO_H, P_WORLD_IF_NO_BELL, P_WORLD_IF_DAY3, P_DYN_NPC, P_NPC_MEMORY, P_WORLD_NEWS, P_WORLD_DENATUS, P_WORLD_RUMORS, P_WORLD_EVENTS, P_DYN_MAP, P_MAP_DISCOVERY,
+    P_WORLD_FOUNDATION, P_WORLD_DUNGEON, P_WORLD_DUNGEON_SPAWN, P_WORLD_ECO, P_WORLD_GUILD_REG, P_WORLD_EQUIPMENT, P_WORLD_IF_BELL_NO_H, P_WORLD_IF_NO_BELL, P_WORLD_IF_DAY3, P_DYN_NPC, P_NPC_MEMORY, P_WORLD_NEWS, P_WORLD_RUMORS, P_WORLD_EVENTS,
     P_COT_LOGIC, P_START_REQ, P_MEM_S2M, P_MEM_M2L, P_DATA_STRUCT,
     P_WRITING_REQ, P_WORLD_VALUES, P_LOOT_SYSTEM,
     P_PHYSIOLOGY_EASY, P_PHYSIOLOGY_NORMAL, P_PHYSIOLOGY_HARD, P_PHYSIOLOGY_HELL,
@@ -33,7 +33,7 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     { id: 'world_dungeon_spawn', name: '1.1 地下城刷怪逻辑', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_DUNGEON_SPAWN, order: 20.5 },
     { id: 'world_guild_reg', name: '2. 公会与登记流程', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_GUILD_REG, order: 21 },
     { id: 'world_eco_social', name: '4. 经济与社会', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_ECO, order: 23 },
-    { id: 'world_factions', name: '5. 派阀与战争游戏', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_FACTIONS, order: 23.5 },
+    
     { id: 'world_equipment', name: '6. 装备与道具', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_EQUIPMENT, order: 23.8 },
     { id: 'world_values', name: '7. 世界数值定义', group: '世界观设定', usage: 'CORE', isActive: true, content: P_WORLD_VALUES, order: 24 },
     { id: 'world_if_no_h', name: '8. IF线-贝尔未加入赫斯缇雅', group: '世界观设定', usage: 'CORE', isActive: false, content: P_WORLD_IF_BELL_NO_H, order: 24.2 },
@@ -47,7 +47,6 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     
     // 【世界动态】
     { id: 'world_news', name: '1. 公会新闻生成', group: '世界动态', usage: 'CORE', isActive: true, content: P_WORLD_NEWS, order: 30 },
-    { id: 'world_denatus', name: '2. 诸神神会', group: '世界动态', usage: 'CORE', isActive: true, content: P_WORLD_DENATUS, order: 31 },
     { id: 'world_rumors', name: '3. 街头传闻', group: '世界动态', usage: 'CORE', isActive: true, content: P_WORLD_RUMORS, order: 32 },
     { id: 'world_events', name: '4. 世界事件管理', group: '世界动态', usage: 'CORE', isActive: true, content: P_WORLD_EVENTS, order: 33 },
     { id: 'sys_story_guide', name: '5. 剧情导演', group: '世界动态', usage: 'CORE', isActive: true, content: P_STORY_GUIDE, order: 34 },
@@ -64,9 +63,7 @@ export const DEFAULT_PROMPT_MODULES: PromptModule[] = [
     
     // 【动态世界提示词】
     { id: 'dyn_npc_event', name: '1. 动态事件生成', group: '动态世界提示词', usage: 'CORE', isActive: true, content: P_DYN_NPC, order: 40 },
-    { id: 'dyn_map_gen', name: '2. 地图动态绘制', group: '动态世界提示词', usage: 'CORE', isActive: true, content: P_DYN_MAP, order: 41 },
     { id: 'dyn_npc_mem', name: '3. NPC记忆更新', group: '动态世界提示词', usage: 'CORE', isActive: true, content: P_NPC_MEMORY, order: 42 }, 
-    { id: 'dyn_map_discover', name: '4. 新地点发现', group: '动态世界提示词', usage: 'CORE', isActive: true, content: P_MAP_DISCOVERY, order: 43 },
     
     // 【开局提示词】
     { id: 'start_req', name: '1. 开局要求', group: '开局提示词', usage: 'START', isActive: true, content: P_START_REQ, order: 0 },
@@ -527,12 +524,9 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             是否在场: c.是否在场
         };
 
-        const coordInfo = c.坐标 ? { 坐标: c.坐标 } : {};
-
         if (c.是否队友) {
             const fullData = {
                 ...baseInfo,
-                ...coordInfo,
                 档案: c.档案,
                 生存数值: c.生存数值 || "需生成",
                 能力值: c.能力值 || "需生成",
@@ -546,7 +540,6 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
             const isPresent = !!c.是否在场;
             const focusData = {
                 ...baseInfo,
-                ...coordInfo,
                 档案: c.档案,
                 私人记忆: isPresent ? focusMemories : formatMemories(specialAbsentMemoriesRaw)
             };
@@ -554,7 +547,6 @@ export const constructSocialContext = (confidants: Confidant[], params: any): st
         } else if (c.是否在场) {
             const presentData = {
                 ...baseInfo,
-                ...coordInfo,
                 档案: c.档案,
                 私人记忆: lastMemories
             };
@@ -621,89 +613,77 @@ export const constructNpcBacklineContext = (gameState: GameState): string => {
 };
 
 /**
- * 地图上下文 (Optimized: Raw Data based on Floor)
+ * 地点上下文 (Location Context)
  */
 export const constructMapContext = (gameState: GameState, params: any): string => {
-    let output = `[地图环境 (Map Context)]\n`;
+    let output = `[地点情报 (Location Context)]\n`;
     const mapData = gameState.地图;
-    const currentPos = gameState.世界坐标 || { x: 0, y: 0 };
-    if (!mapData) return output + '(地图数据丢失)';
+    if (!mapData) return output + '(地点数据丢失)';
 
-    const current = mapData.current || { mode: 'REGION' as const };
-    const region = mapData.regions.find(r => r.id === current.regionId) || mapData.regions[0];
-    const floor = typeof params?.forceFloor === 'number'
-        ? params.forceFloor
-        : (current.floor ?? gameState.当前楼层 ?? 0);
+    const macroList = mapData.macroLocations || [];
+    const midList = mapData.midLocations || [];
+    const smallList = mapData.smallLocations || [];
+    const currentName = gameState.当前地点 || '未知';
 
-    output += `当前位置: ${gameState.当前地点} (Mode: ${current.mode}${current.mode === 'DUNGEON' && floor ? ` Floor ${floor}` : ''})\n`;
-    output += `坐标: X:${currentPos.x} Y:${currentPos.y}\n`;
-    output += `坐标单位: 像素 (当前地图坐标系)\n`;
+    const findMacro = (name?: string) => name ? macroList.find(m => m.名称 === name || m.地点 === name) : undefined;
+    const findMid = (name?: string) => name ? midList.find(m => m.名称 === name) : undefined;
+    const findSmall = (name?: string) => name ? smallList.find(m => m.名称 === name) : undefined;
 
-    const worldPayload = mapData.world
-        ? {
-            id: mapData.world.id,
-            name: mapData.world.name,
-            center: mapData.world.center,
-            size: mapData.world.size,
-            locations: (mapData.world.locations || []).map(loc => ({
-                id: loc.id,
-                name: loc.name,
-                center: loc.center,
-                size: loc.size
-            }))
+    let macro = mapData.current?.macroId ? macroList.find(m => m.id === mapData.current?.macroId) : undefined;
+    let mid = mapData.current?.midId ? midList.find(m => m.id === mapData.current?.midId) : undefined;
+    let small = mapData.current?.smallId ? smallList.find(m => m.id === mapData.current?.smallId) : undefined;
+
+    const smallHit = findSmall(currentName);
+    if (smallHit) {
+        small = smallHit;
+        if (smallHit.归属) {
+            const midHit = findMid(smallHit.归属);
+            if (midHit) {
+                mid = midHit;
+                macro = findMacro(midHit.归属) || macro;
+            } else {
+                macro = findMacro(smallHit.归属) || macro;
+            }
         }
-        : null;
-
-    const regionPayload = region
-        ? {
-            id: region.id,
-            name: region.name,
-            center: region.center,
-            size: region.size,
-            buildings: (region.buildings || []).map(b => ({ name: b.name, description: b.description }))
-        }
-        : null;
-
-    if (current.mode === 'BUILDING') {
-        if (regionPayload) output += `【地区地图(常驻)】\n${JSON.stringify(regionPayload, null, 2)}\n`;
-        const building = current.buildingId ? mapData.buildings[current.buildingId] : undefined;
-        if (building) {
-            output += `【建筑内部】\n${JSON.stringify(building, null, 2)}\n`;
+    } else {
+        const midHit = findMid(currentName);
+        if (midHit) {
+            mid = midHit;
+            macro = findMacro(midHit.归属) || macro;
         } else {
-            output += `【建筑内部】(未找到对应建筑数据)\n`;
+            macro = findMacro(currentName) || macro;
         }
-        return output.trimEnd();
     }
 
-    if (current.mode === 'DUNGEON') {
-        if (regionPayload) output += `【地区地图(常驻)】\n${JSON.stringify(regionPayload, null, 2)}\n`;
-        const dungeonId = current.dungeonId || region?.dungeonId;
-        const dungeon = dungeonId ? mapData.dungeons[dungeonId] : undefined;
-        if (dungeon) {
-            const floorData = dungeon.floors.find(f => f.floor === floor) || dungeon.floors[0];
-            const dungeonPayload = {
-                id: dungeon.id,
-                name: dungeon.name,
-                floor: floorData?.floor,
-                bounds: floorData?.bounds,
-                rooms: floorData?.rooms || [],
-                edges: floorData?.edges || []
-            };
-            output += `【地下城楼层】\n${JSON.stringify(dungeonPayload, null, 2)}\n`;
-        } else {
-            output += `【地下城楼层】(未找到对应地下城数据)\n`;
-        }
-        return output.trimEnd();
-    }
+    const formatMacro = (m?: { 名称?: string; 地点?: string; 描述?: string; 内容?: string[] }) => {
+        if (!m) return '名称: \n地点: \n描述: ';
+        const name = m.名称 || '';
+        const place = m.地点 || m.名称 || '';
+        const desc = m.描述 || '';
+        const content = Array.isArray(m.内容) && m.内容.length > 0 ? `\n内容: ${m.内容.join(' | ')}` : '';
+        return `名称: ${name}\n地点: ${place}\n描述: ${desc}${content}`;
+    };
 
-    if (worldPayload) output += `【世界地图(常驻)】\n${JSON.stringify(worldPayload, null, 2)}\n`;
-    if (regionPayload) output += `【地区地图(常驻)】\n${JSON.stringify(regionPayload, null, 2)}\n`;
+    const formatMid = (m?: { 名称?: string; 描述?: string; 归属?: string; 内部建筑?: string[] }) => {
+        if (!m) return '地点: \n描述: \n归属: \n内部建筑: ';
+        const buildings = Array.isArray(m.内部建筑) && m.内部建筑.length > 0 ? m.内部建筑.join(' | ') : '';
+        return `地点: ${m.名称 || ''}\n描述: ${m.描述 || ''}\n归属: ${m.归属 || ''}\n内部建筑: ${buildings}`;
+    };
+
+    const formatSmall = (s?: { 名称?: string; 描述?: string; 归属?: string }) => {
+        if (!s) return '名称: \n归属: \n描述: ';
+        return `名称: ${s.名称 || ''}\n归属: ${s.归属 || ''}\n描述: ${s.描述 || ''}`;
+    };
+
+    output += `当前地点: ${currentName}\n\n`;
+    output += `大型区域:\n${formatMacro(macro)}\n\n`;
+    output += `中型地点:\n${formatMid(mid)}\n\n`;
+    output += `小型地点:\n${formatSmall(small)}`;
     return output.trimEnd();
 };
 
 const constructMapBaseContext = (mapData?: WorldMapData): string => {
     if (!mapData) return "";
-    if (mapData.current?.mode === 'BUILDING' || mapData.current?.mode === 'DUNGEON') return "";
     return "";
 };
 
@@ -737,12 +717,10 @@ export const constructTaskContext = (tasks: Task[], params: any): string => {
 
 export const constructWorldContext = (world: any, params: any): string => {
     return `[世界动态 (World State)]\n` + 
-           `异常指数: ${world.异常指数}\n` +
-           `头条新闻: ${JSON.stringify(world.头条新闻 || [])}\n` + 
+           `地下城异常指数: ${world.地下城异常指数}\n` +
+           `公会官方通告: ${JSON.stringify(world.公会官方通告 || [])}\n` + 
            `街头传闻: ${JSON.stringify(world.街头传闻 || [])}\n` +
-           `诸神神会: ${JSON.stringify(world.诸神神会 || {}, null, 0)}\n` +
            `NPC后台跟踪: ${JSON.stringify(world.NPC后台跟踪 || [])}\n` +
-           `派阀格局: ${JSON.stringify(world.派阀格局 || {}, null, 0)}\n` +
            `战争游戏: ${JSON.stringify(world.战争游戏 || {}, null, 0)}\n` +
            `下次更新: ${world.下次更新 || "待定"}`;
 };
@@ -873,14 +851,11 @@ export const constructMemoryContext = (memory: MemorySystem, logs: LogEntry[], c
 
 export const constructInventoryContext = (
     inventory: InventoryItem[],
-    archivedLoot: InventoryItem[],
     publicLoot: InventoryItem[],
-    carrier: string | undefined,
-    params: any
+    params?: any
 ): string => {
     let invContent = `[背包物品 (Inventory)]\n${JSON.stringify(inventory, null, 2)}\n\n` +
-        `[战利品保管库 (Archived Loot)]\n${JSON.stringify(archivedLoot || [], null, 2)}\n\n` +
-        `[公共战利品背包 (Public Loot - Carrier: ${carrier || 'Unknown'})]\n${JSON.stringify(publicLoot || [], null, 2)}`;
+        `[公共战利品 (Public Loot)]\n${JSON.stringify(publicLoot || [], null, 2)}`;
     return invContent;
 };
 
@@ -893,24 +868,6 @@ const buildPlayerDataContext = (playerData: GameState["角色"], difficultySetti
 };
 
 // --- Main Prompt Assembler ---
-
-const parseDungeonFloorTrigger = (input: string): number | null => {
-    if (!input) return null;
-    const match = input.match(/(?:第\s*)?(\d{1,2})\s*层/);
-    if (!match) return null;
-    const floor = parseInt(match[1], 10);
-    if (Number.isNaN(floor)) return null;
-    if (floor < 1 || floor > 50) return null;
-    return floor;
-};
-
-const hasMapKeyword = (input: string, params: any): boolean => {
-    if (!input) return false;
-    if (Array.isArray(params?.triggerKeywords)) {
-        return params.triggerKeywords.some((kw: string) => kw && input.includes(kw));
-    }
-    return /地图|地形|路线|路径/.test(input);
-};
 
 export const generateSingleModuleContext = (
     mod: ContextModuleConfig,
@@ -927,20 +884,6 @@ export const generateSingleModuleContext = (
             const difficulty = gameState.游戏难度 || Difficulty.NORMAL;
             const hasFamilia = gameState.角色.所属眷族 && gameState.角色.所属眷族 !== '无' && gameState.角色.所属眷族 !== 'None';
             
-            // Map Generation Check
-            const mapData = gameState.地图;
-            const mapState = mapData?.current;
-            const currentFloor = mapState?.floor ?? gameState.当前楼层 ?? 0;
-            const regionForDungeon = mapState?.regionId
-                ? mapData?.regions?.find(r => r.id === mapState.regionId)
-                : mapData?.regions?.[0];
-            const dungeonId = mapState?.dungeonId || regionForDungeon?.dungeonId;
-            const dungeon = dungeonId ? mapData?.dungeons?.[dungeonId] : undefined;
-            // Check if map data exists for THIS floor
-            const hasMapDataForFloor = currentFloor === 0 
-                ? true 
-                : !!dungeon?.floors?.some(f => f.floor === currentFloor);
-            
             let activePromptModules = settings.promptModules.filter(m => {
                 if (!m.isActive) {
                     // Difficulty / Physiology Logic
@@ -948,13 +891,6 @@ export const generateSingleModuleContext = (
                         if (m.id.includes(difficulty.toLowerCase().replace('normal', 'normal'))) return true;
                         return false;
                     }
-                    // Dynamic Map Gen Logic: Enable if in dungeon AND no map data
-                    if (m.id === 'dyn_map_gen') {
-                        return (currentFloor > 0 && !hasMapDataForFloor); 
-                    }
-                    // Dynamic Map Discovery: Always enabled if core is enabled, but good to have explicit check
-                    if (m.id === 'dyn_map_discover') return true; 
-
                     return false;
                 }
                 
@@ -964,7 +900,7 @@ export const generateSingleModuleContext = (
                 return false;
             });
             if (isServiceOverrideEnabled(settings, 'world')) {
-                const worldDynamicIds = new Set(['world_news', 'world_denatus', 'world_rumors', 'world_events']);
+                const worldDynamicIds = new Set(['world_news', 'world_rumors', 'world_events']);
                 activePromptModules = activePromptModules.filter(m => !worldDynamicIds.has(m.id));
             }
             if (isServiceOverrideEnabled(settings, 'social')) {
@@ -1099,22 +1035,14 @@ export const generateSingleModuleContext = (
             // Optimization: Remove heavy avatar base64 data from context
             return buildPlayerDataContext(gameState.角色, gameState.游戏难度 || Difficulty.NORMAL);
         case 'MAP_CONTEXT': {
-            const mapState = gameState.地图?.current;
-            const mapFloor = mapState?.floor ?? gameState.当前楼层 ?? 0;
-            const triggerFloor = parseDungeonFloorTrigger(playerInput);
-            if (mapState?.mode === 'BUILDING' || mapState?.mode === 'DUNGEON') {
-                return constructMapContext(gameState, { ...mod.params, forceFloor: mapFloor });
-            }
-            return constructMapContext(gameState, { ...mod.params, forceFloor: triggerFloor ?? mapFloor });
+            return constructMapContext(gameState, mod.params);
         }
         case 'SOCIAL_CONTEXT':
             return constructSocialContext(gameState.社交, mod.params);
         case 'INVENTORY_CONTEXT':
             return constructInventoryContext(
                 gameState.背包,
-                gameState.战利品,
                 gameState.公共战利品,
-                gameState.战利品背负者,
                 mod.params
             );
         case 'TASK_CONTEXT':
@@ -1464,7 +1392,6 @@ export const generateWorldInfoResponse = async (
         P_SYS_GLOSSARY,
         P_WORLD_FOUNDATION,
         P_WORLD_NEWS,
-        P_WORLD_DENATUS,
         P_WORLD_RUMORS,
         worldEventsPrompt,
         P_WORLD_SERVICE

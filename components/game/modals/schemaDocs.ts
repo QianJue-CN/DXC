@@ -13,7 +13,6 @@
             "当前地点": "String (中文地名)",
             "当前楼层": "Number (0=地表)",
             "天气": "String",
-            "世界坐标": { "x": "Number", "y": "Number" },
             "historyArchive": "Array<LogEntry>?"
         }
     },
@@ -121,14 +120,10 @@
         }
     },
     {
-        title: "5. 战利品 (Loot)",
-        path: "gameState.战利品 / gameState.公共战利品",
-        desc: "已归档与临时战利品。",
-        structure: {
-            "战利品": "Array<InventoryItem>",
-            "公共战利品": "Array<InventoryItem>",
-            "战利品背负者": "String"
-        }
+        title: "5. 公共战利品 (Public Loot)",
+        path: "gameState.公共战利品",
+        desc: "探索中已拾取但未分配的临时战利品。",
+        structure: "Array<InventoryItem>"
     },
     {
         title: "6. 社交 (Social)",
@@ -149,7 +144,6 @@
             "是否队友": "Boolean",
             "特别关注": "Boolean",
             "强制包含上下文": "Boolean",
-            "坐标": "{x, y}",
             "记忆": "Array<{内容, 时间戳}>",
             "档案": "String",
             "头像": "String",
@@ -210,26 +204,23 @@
         path: "gameState.世界",
         desc: "公会与都市动态。",
         structure: {
-            "异常指数": "Number",
-            "头条新闻": "String[]",
-            "街头传闻": "Array<{主题, 传播度}>",
-            "诸神神会": "{下次神会开启时间, 神会主题, 讨论内容[{角色, 对话}], 最终结果}",
+            "地下城异常指数": "Number",
+            "公会官方通告": "String[]",
+            "街头传闻": "Array<{主题, 广为人知日, 风波平息日}>",
             "NPC后台跟踪": "Array<{NPC, 当前行动, 地点?, 位置?, 进度?, 预计完成?, 计划阶段?, 当前阶段?, 阶段结束时间?}>",
-            "派阀格局": "{S级[], A级[], B级至I级[], 备注?}",
             "战争游戏": "{状态, 参战眷族[], 形式, 赌注, 举办时间, 结束时间, 结果, 备注}",
             "下次更新": "String"
         }
     },
     {
-        title: "10. 地图 (Map)",
+        title: "10. 地点 (Locations)",
         path: "gameState.地图",
-        desc: "世界/区域/建筑/地下城的统一地图数据。",
+        desc: "地点层级与内容数据（无坐标与尺寸）。",
         structure: {
-            "world": "{id, name, bounds{width,height}, center{x,y}, size{width,height,unit?}, locations:[{id,name,center{x,y},size{width,height,unit?}}]}",
-            "regions": "Array<{id, name, worldLocationId, bounds{width,height}, center{x,y}, size{width,height,unit?}, landmarks:[{id,name,position{x,y},radius?,type?,description?}], buildings:[{id,name,description,type?}], dungeonId?}>",
-            "buildings": "{[buildingId]: {id, regionId, name, description?, bounds{width,height}, anchor{x,y}, layout{scale?, width, height, rooms, furniture, entrances, notes?}}}",
-            "dungeons": "{[dungeonId]: {id, regionId, name, description?, entrance{x,y}, floors:[{floor, bounds{width,height}, rooms, edges}]}}",
-            "current": "{mode: WORLD|REGION|BUILDING|DUNGEON, regionId?, buildingId?, dungeonId?, floor?}"
+            "macroLocations": "Array<{id, 名称, 地点?, 描述?, 内容?}>",
+            "midLocations": "Array<{id, 名称, 描述?, 归属?, 内部建筑?}>",
+            "smallLocations": "Array<{id, 名称, 描述?, 归属?}>",
+            "current": "{macroId?, midId?, smallId?}"
         }
     },
     {
@@ -245,7 +236,7 @@
                 "剧情规划": "{规划长期剧情走向, 规划中期剧情走向, 规划短期剧情走向}",
                 "待激活事件": "Array<{事件, 激活时间, 激活条件}>"
             },
-            "契约": "Array<{id, 名称, 描述, 状态, 条款}>"
+            "契约": "Array<{id, 名称, 描述, 状态, 条款, 开始时间, 结束时间, 结束条件, 违约代价, 备注}>"
         }
     },
     {

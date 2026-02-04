@@ -22,7 +22,6 @@ import { SkillsModal } from './game/modals/SkillsModal';
 import { StoryModal } from './game/modals/StoryModal';
 import { ContractModal } from './game/modals/ContractModal';
 import { LootModal } from './game/modals/LootModal';
-import { LootVaultModal } from './game/modals/LootVaultModal';
 import { FamiliaModal } from './game/modals/FamiliaModal';
 import { PartyModal } from './game/modals/PartyModal';
 import { MemoryModal } from './game/modals/MemoryModal';
@@ -51,7 +50,6 @@ type ActiveModal =
     | 'STORY'
     | 'CONTRACT'
     | 'LOOT'
-    | 'LOOT_VAULT'
     | 'FAMILIA'
     | 'PARTY'
     | 'MEMORY'
@@ -139,7 +137,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
   const presentCount = (gameState.社交 || []).filter(c => c.是否在场).length;
   const inventoryWeight = computeInventoryWeight(previewState.背包 || []);
   const maxCarry = computeMaxCarry(previewState.角色);
-  const lootCount = (gameState.公共战利品?.length || 0) + (gameState.战利品?.length || 0);
+  const lootCount = (gameState.公共战利品?.length || 0);
 
   const centerPanelProps = {
       logs: gameState.日志,
@@ -186,9 +184,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                 time={gameState.游戏时间} 
                 location={gameState.当前地点}
                 locationHierarchy={locationHierarchy}
-                floor={gameState.当前楼层} 
                 weather={gameState.天气} 
-                coords={gameState.世界坐标}
                 isHellMode={isHellMode}
             />
             
@@ -211,7 +207,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                         onOpenStory={() => setActiveModal('STORY')}
                         onOpenContract={() => setActiveModal('CONTRACT')}
                         onOpenLoot={() => setActiveModal('LOOT')}
-                        onOpenLootVault={() => setActiveModal('LOOT_VAULT')}
                         onOpenMemory={() => setActiveModal('MEMORY')}
                         onOpenParty={() => setActiveModal('PARTY')}
                         onOpenSaveManager={() => setActiveModal('SAVE_MANAGER')}
@@ -228,7 +223,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                     />
                 </div>
             </div>
-            <BottomBanner isHellMode={isHellMode} announcements={gameState.世界?.头条新闻} />
+            <BottomBanner isHellMode={isHellMode} announcements={gameState.世界?.公会官方通告} />
         </div>
 
         {/* Mobile View */}
@@ -237,9 +232,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                 time={gameState.游戏时间} 
                 location={gameState.当前地点}
                 locationHierarchy={locationHierarchy}
-                floor={gameState.当前楼层} 
                 weather={gameState.天气}
-                coords={gameState.世界坐标}
                 isHellMode={isHellMode}
             />
             <div className="flex-1 relative overflow-hidden w-full">
@@ -275,7 +268,6 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
                             onOpenStory: () => setActiveModal('STORY'),
                             onOpenContract: () => setActiveModal('CONTRACT'),
                             onOpenLoot: () => setActiveModal('LOOT'),
-                            onOpenLootVault: () => setActiveModal('LOOT_VAULT'),
                             onOpenSaveManager: () => setActiveModal('SAVE_MANAGER'),
                             onOpenMemory: () => setActiveModal('MEMORY'),
                             onOpenLibrary: () => openSettings('LIBRARY'),
@@ -349,14 +341,7 @@ export const GameInterface: React.FC<GameInterfaceProps> = ({ onExit, initialSta
         <LootModal 
             isOpen={activeModal === 'LOOT'} 
             onClose={closeModal} 
-            items={gameState.公共战利品} 
-            carrier={gameState.战利品背负者}
-        />
-
-        <LootVaultModal
-            isOpen={activeModal === 'LOOT_VAULT'}
-            onClose={closeModal}
-            items={gameState.战利品}
+            items={gameState.公共战利品}
         />
 
         <FamiliaModal 

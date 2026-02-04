@@ -549,7 +549,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <MenuButton 
             icon={<Database />} 
             label="资料库" 
-            subLabel="地图 / 建筑 / 地下城"
+            subLabel="地点 / 层级 / 内容"
             onClick={() => setCurrentView('LIBRARY')} 
             color="border-emerald-600 hover:bg-emerald-600 hover:text-white text-black"
         />
@@ -983,7 +983,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="space-y-6 animate-in slide-in-from-right-8 duration-300 h-full flex flex-col">
             <SectionHeader title="变量调试" icon={<Database />} />
             <div className="flex flex-col md:flex-row gap-4 mb-4">
-                <P5Dropdown label="选择数据模块" options={[{ label: '角色 (Character)', value: '角色' }, { label: '背包 (Inventory)', value: '背包' }, { label: '世界 (World)', value: '世界' }, { label: '社交 (Social)', value: '社交' }, { label: '任务 (Tasks)', value: '任务' }, { label: '剧情 (Story)', value: '剧情' }, { label: '眷族 (Familia)', value: '眷族' }, { label: '战斗 (Combat)', value: '战斗' }, { label: '战利品仓库 (Archived Loot)', value: '战利品' }, { label: '公共战利品 (Public Loot)', value: '公共战利品' }, { label: '记忆 (Memory)', value: '记忆' }, { label: '地图 (Map)', value: '地图' }]} value={variableCategory} onChange={(val) => setVariableCategory(val)} className="w-full md:w-64" />
+                <P5Dropdown label="选择数据模块" options={[{ label: '角色 (Character)', value: '角色' }, { label: '背包 (Inventory)', value: '背包' }, { label: '世界 (World)', value: '世界' }, { label: '社交 (Social)', value: '社交' }, { label: '任务 (Tasks)', value: '任务' }, { label: '剧情 (Story)', value: '剧情' }, { label: '眷族 (Familia)', value: '眷族' }, { label: '战斗 (Combat)', value: '战斗' }, { label: '公共战利品 (Public Loot)', value: '公共战利品' }, { label: '记忆 (Memory)', value: '记忆' }, { label: '地图 (Map)', value: '地图' }]} value={variableCategory} onChange={(val) => setVariableCategory(val)} className="w-full md:w-64" />
                 <div className="flex-1 flex items-end justify-end"><button onClick={() => { try { const parsed = JSON.parse(jsonEditText); onUpdateGameState({ ...gameState, [variableCategory]: parsed }); setJsonError(null); alert("变量已更新"); } catch (e: any) { setJsonError(e.message); } }} className="w-full md:w-auto bg-red-600 text-white px-6 py-3 font-bold uppercase hover:bg-red-50 shadow-[4px_4px_0_#000]"><Save className="inline mr-2" size={18} /> 应用修改</button></div>
             </div>
             <div className="flex-1 border-2 border-black bg-zinc-900 relative"><textarea value={jsonEditText} onChange={(e) => setJsonEditText(e.target.value)} className="w-full h-full bg-zinc-900 text-green-500 font-mono text-xs p-4 outline-none resize-none custom-scrollbar" spellCheck="false" />{jsonError && <div className="absolute bottom-0 left-0 w-full bg-red-900/90 text-white p-2 text-xs font-mono">ERROR: {jsonError}</div>}</div>
@@ -1322,16 +1322,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const renderLibraryView = () => {
       const mapData = gameState.地图;
-      const world = mapData?.world;
-      const regions = mapData?.regions || [];
-      const buildings = Object.values(mapData?.buildings || {});
-      const dungeon = mapData?.dungeons ? Object.values(mapData.dungeons)[0] : undefined;
-      const worldLocations = world?.locations || [];
-      const dungeonFloors = dungeon?.floors || [];
-      const countBuildingRooms = (layout: any) => {
-          if (!layout?.floors) return 0;
-          return layout.floors.reduce((sum: number, floor: any) => sum + (floor.rooms?.length || 0), 0);
-      };
+      const macroLocations = mapData?.macroLocations || [];
+      const midLocations = mapData?.midLocations || [];
+      const smallLocations = mapData?.smallLocations || [];
+      const current = mapData?.current;
+      const currentMacro = current?.macroId ? macroLocations.find(m => m.id === current.macroId) : undefined;
+      const currentMid = current?.midId ? midLocations.find(m => m.id === current.midId) : undefined;
+      const currentSmall = current?.smallId ? smallLocations.find(m => m.id === current.smallId) : undefined;
       return (
           <div className="space-y-6 animate-in slide-in-from-right-8 duration-300">
               <SectionHeader title="资料库" icon={<Database />} />
@@ -1351,116 +1348,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
               {libraryMode === 'JSON' ? (
                   <div className="bg-white border border-zinc-300 p-4 shadow-sm">
-                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">完整变量结构 (Map)</div>
+                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">完整变量结构 (地点)</div>
                       <pre className="text-[10px] text-zinc-800 font-mono bg-zinc-50 border border-zinc-200 p-3 max-h-[70vh] overflow-auto whitespace-pre-wrap">
                           {JSON.stringify({ 地图: mapData }, null, 2)}
                       </pre>
                   </div>
               ) : (
               <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-zinc-500 uppercase font-bold">世界地点</div>
-                      <div className="text-2xl font-display text-black">{worldLocations.length}</div>
-                  </div>
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-zinc-500 uppercase font-bold">地区地图</div>
-                      <div className="text-2xl font-display text-black">{regions.length}</div>
-                  </div>
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-zinc-500 uppercase font-bold">建筑物</div>
-                      <div className="text-2xl font-display text-black">{buildings.length}</div>
-                  </div>
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-zinc-500 uppercase font-bold">地下城楼层</div>
-                      <div className="text-2xl font-display text-black">{dungeonFloors.length}</div>
-                  </div>
-              </div>
-              <div className="bg-white border border-zinc-300 p-4 shadow-sm space-y-2 text-xs text-zinc-700">
-                  <div className="font-bold text-zinc-800">上下文插入条件</div>
-                  <div>• 世界地图：仅在未进入建筑/地下城时常驻，输出名称/像素坐标/区域大小。</div>
-                  <div>• 地区地图：常驻（进入建筑/地下城仍保留），包含地标与建筑清单。</div>
-                  <div>• 建筑物：进入建筑时插入完整布局与房间数据。</div>
-                  <div>• 地下城：进入地下城时插入图结构与当前楼层完整数据（迷雾由前端渲染）。</div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">世界地图</div>
-                      <div className="max-h-64 overflow-auto space-y-2">
-                          {worldLocations.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
-                          {worldLocations.map(item => (
-                              <div key={item.id} className="border border-zinc-200 p-2">
-                                  <div className="font-bold text-black">{item.name}</div>
-                                  <div className="text-[10px] text-zinc-500">坐标: {item.center?.x}, {item.center?.y}</div>
-                                  <div className="text-[10px] text-zinc-500">区域大小: {item.size?.width ?? '-'} × {item.size?.height ?? '-'} {item.size?.unit || 'px'}</div>
-                                  {item.description && <div className="text-[10px] text-zinc-600 mt-1">{item.description}</div>}
-                              </div>
-                          ))}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
+                          <div className="text-zinc-500 uppercase font-bold">大型区域</div>
+                          <div className="text-2xl font-display text-black">{macroLocations.length}</div>
+                      </div>
+                      <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
+                          <div className="text-zinc-500 uppercase font-bold">中型地点</div>
+                          <div className="text-2xl font-display text-black">{midLocations.length}</div>
+                      </div>
+                      <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
+                          <div className="text-zinc-500 uppercase font-bold">小型地点</div>
+                          <div className="text-2xl font-display text-black">{smallLocations.length}</div>
                       </div>
                   </div>
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">地区地图</div>
-                      <div className="max-h-64 overflow-auto space-y-2">
-                          {regions.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
-                          {regions.map(item => (
-                              <div key={item.id} className="border border-zinc-200 p-2">
-                                  <div className="font-bold text-black">{item.name}</div>
-                                  <div className="text-[10px] text-zinc-500">坐标: {item.center?.x}, {item.center?.y}</div>
-                                  <div className="text-[10px] text-zinc-500">区域大小: {item.size?.width ?? '-'} × {item.size?.height ?? '-'} {item.size?.unit || 'px'}</div>
-                                  <div className="text-[10px] text-zinc-500">地标: {item.landmarks?.length || 0}</div>
-                                  <div className="text-[10px] text-zinc-500">建筑: {item.buildings?.length || 0}</div>
-                                  {item.description && <div className="text-[10px] text-zinc-600 mt-1">{item.description}</div>}
-                              </div>
-                          ))}
-                      </div>
+                  <div className="bg-white border border-zinc-300 p-4 shadow-sm space-y-2 text-xs text-zinc-700">
+                      <div className="font-bold text-zinc-800">上下文插入条件</div>
+                      <div>• 地点情报常驻，包含当前地点与其层级归属（大型区域/中型地点/小型地点）。</div>
+                      <div>• 仅维护名称/归属/描述/内容，不生成坐标或地图尺寸。</div>
                   </div>
                   <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">建筑物</div>
-                      <div className="max-h-64 overflow-auto space-y-2">
-                          {buildings.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
-                          {buildings.map(item => (
-                              <div key={item.id} className="border border-zinc-200 p-2">
-                                  <div className="font-bold text-black">{item.name}</div>
-                                  <div className="text-[10px] text-zinc-500">归属: {regions.find(m => m.id === item.regionId)?.name || item.regionId}</div>
-                                  <div className="text-[10px] text-zinc-500">尺寸: {item.layout?.width || '-'} × {item.layout?.height || '-'}</div>
-                                  <div className="text-[10px] text-zinc-500">房间: {countBuildingRooms(item.layout)}</div>
-                                  {item.description && <div className="text-[10px] text-zinc-600 mt-1">{item.description}</div>}
-                              </div>
-                          ))}
+                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">当前位置层级</div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="border border-zinc-200 p-2">
+                              <div className="text-[10px] text-zinc-500 uppercase">大型区域</div>
+                              <div className="font-bold text-black">{currentMacro?.名称 || currentMacro?.地点 || '未指定'}</div>
+                          </div>
+                          <div className="border border-zinc-200 p-2">
+                              <div className="text-[10px] text-zinc-500 uppercase">中型地点</div>
+                              <div className="font-bold text-black">{currentMid?.名称 || '未指定'}</div>
+                          </div>
+                          <div className="border border-zinc-200 p-2">
+                              <div className="text-[10px] text-zinc-500 uppercase">小型地点</div>
+                              <div className="font-bold text-black">{currentSmall?.名称 || '未指定'}</div>
+                          </div>
                       </div>
                   </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">地下城结构</div>
-                      <div className="max-h-64 overflow-auto space-y-2">
-                          {!dungeon && <div className="text-zinc-400 italic">暂无数据</div>}
-                          {dungeon && (
-                              <div className="border border-zinc-200 p-2">
-                                  <div className="font-bold text-black">{dungeon.name}</div>
-                                  <div className="text-[10px] text-zinc-500">归属地区: {regions.find(m => m.id === dungeon.regionId)?.name || dungeon.regionId}</div>
-                                  {dungeon.description && <div className="text-[10px] text-zinc-600 mt-1">{dungeon.description}</div>}
-                              </div>
-                          )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
+                          <div className="text-xs font-bold uppercase text-zinc-600 mb-2">大型区域</div>
+                          <div className="max-h-64 overflow-auto space-y-2">
+                              {macroLocations.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
+                              {macroLocations.map(item => (
+                                  <div key={item.id} className="border border-zinc-200 p-2">
+                                      <div className="font-bold text-black">{item.名称 || item.地点}</div>
+                                      {item.地点 && <div className="text-[10px] text-zinc-500">地点: {item.地点}</div>}
+                                      {item.内容 && item.内容.length > 0 && (
+                                          <div className="text-[10px] text-zinc-500">内容: {item.内容.join(' | ')}</div>
+                                      )}
+                                      {item.描述 && <div className="text-[10px] text-zinc-600 mt-1">{item.描述}</div>}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                      <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
+                          <div className="text-xs font-bold uppercase text-zinc-600 mb-2">中型地点</div>
+                          <div className="max-h-64 overflow-auto space-y-2">
+                              {midLocations.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
+                              {midLocations.map(item => (
+                                  <div key={item.id} className="border border-zinc-200 p-2">
+                                      <div className="font-bold text-black">{item.名称}</div>
+                                      {item.归属 && <div className="text-[10px] text-zinc-500">归属: {item.归属}</div>}
+                                      {item.内部建筑 && item.内部建筑.length > 0 && (
+                                          <div className="text-[10px] text-zinc-500">内部建筑: {item.内部建筑.join(' | ')}</div>
+                                      )}
+                                      {item.描述 && <div className="text-[10px] text-zinc-600 mt-1">{item.描述}</div>}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                      <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
+                          <div className="text-xs font-bold uppercase text-zinc-600 mb-2">小型地点</div>
+                          <div className="max-h-64 overflow-auto space-y-2">
+                              {smallLocations.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
+                              {smallLocations.map(item => (
+                                  <div key={item.id} className="border border-zinc-200 p-2">
+                                      <div className="font-bold text-black">{item.名称}</div>
+                                      {item.归属 && <div className="text-[10px] text-zinc-500">归属: {item.归属}</div>}
+                                      {item.描述 && <div className="text-[10px] text-zinc-600 mt-1">{item.描述}</div>}
+                                  </div>
+                              ))}
+                          </div>
                       </div>
                   </div>
-                  <div className="bg-white border border-zinc-300 p-4 shadow-sm text-xs">
-                      <div className="text-xs font-bold uppercase text-zinc-600 mb-2">地下城楼层</div>
-                      <div className="text-[10px] text-zinc-600 mb-2">已记录楼层: {dungeonFloors.length}</div>
-                      <div className="max-h-64 overflow-auto space-y-2">
-                          {dungeonFloors.length === 0 && <div className="text-zinc-400 italic">暂无数据</div>}
-                          {dungeonFloors.map((floor: any) => (
-                              <div key={floor.floor} className="border border-zinc-200 p-2">
-                                  <div className="font-bold text-black">{floor.name}</div>
-                                  <div className="text-[10px] text-zinc-500">楼层: {floor.floor}</div>
-                                  <div className="text-[10px] text-zinc-500">房间: {floor.rooms?.length || 0}</div>
-                                  <div className="text-[10px] text-zinc-500">节点: {floor.nodes?.length || 0}</div>
-                                  <div className="text-[10px] text-zinc-500">连接: {floor.edges?.length || 0}</div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              </div>
               </div>
               )}
           </div>
@@ -1538,3 +1515,6 @@ const SectionHeader = ({ title, icon }: any) => (
         <h3 className="text-2xl md:text-3xl font-display uppercase italic text-black">{title}</h3>
     </div>
 );
+
+
+

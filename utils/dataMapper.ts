@@ -21,7 +21,6 @@ export const createNewGameState = (
     };
     const displayRace = raceNameMap[race] || race;
     const worldMap = generateDanMachiMap();
-    const startLoc = { x: 10000, y: 10000 }; // 统一出生点：巴别塔广场（区域像素坐标）
 
     // 2. 差异化开局配置 (Difficulty Config)
     let startValis = 0;
@@ -29,7 +28,7 @@ export const createNewGameState = (
     let initialInventory: InventoryItem[] = [];
     let initialTasks: Task[] = [];
     let initialNews: string[] = [];
-    let initialRumors: { 主题: string; 传播度: number }[] = [];
+    let initialRumors: { 主题: string; 广为人知日: string; 风波平息日: string }[] = [];
     let startMind = 60;
     let maxMind = 60;
     let startStamina = 100;
@@ -235,10 +234,10 @@ export const createNewGameState = (
     initialNews.push("【庆典】怪物祭进入倒计时 11 天，公会全面提升安保等级。【第十二日开启】");
     initialNews.push("【公会】上层第 5~7 层出现异常刷新，请新人冒险者谨慎进入、优先组队。");
     
-    // 增加通用传闻
-    initialRumors.push({ 主题: "听说洛基眷族正在筹备一次大规模远征。", 传播度: 55 });
-    initialRumors.push({ 主题: "东区的贫民窟里住着一位贫穷女神。", 传播度: 35 });
-    initialRumors.push({ 主题: "芙蕾雅眷族最近频繁在酒馆露面。", 传播度: 25 });
+    // 增加通用传闻（传播倒计时）
+    initialRumors.push({ 主题: "听说洛基眷族正在筹备一次大规模远征。", 广为人知日: "第3日", 风波平息日: "第7日" });
+    initialRumors.push({ 主题: "东区的贫民窟里住着一位贫穷女神。", 广为人知日: "第4日", 风波平息日: "第8日" });
+    initialRumors.push({ 主题: "芙蕾雅眷族最近频繁在酒馆露面。", 广为人知日: "第5日", 风波平息日: "第9日" });
         
 
     // 4. 生存与身体部位初始化
@@ -387,29 +386,18 @@ export const createNewGameState = (
         当前楼层: 0,
         天气: "晴朗",
         
-        世界坐标: startLoc,
-        
         背包: initialInventory, 
-        战利品: [], 
         公共战利品: [], 
-        战利品背负者: name, 
 
         社交: [],
         
         地图: worldMap,
 
         世界: {
-            异常指数: difficulty === Difficulty.HELL ? 40 : 10, 
-            头条新闻: initialNews, 
+            地下城异常指数: difficulty === Difficulty.HELL ? 40 : 10, 
+            公会官方通告: initialNews, 
             街头传闻: initialRumors,
-            诸神神会: {
-                下次神会开启时间: "第3日 20:00",
-                神会主题: "升格者称号授予",
-                讨论内容: [],
-                最终结果: "待议"
-            },
             NPC后台跟踪: initialNpcTracking,
-            派阀格局: { S级: ["芙蕾雅眷族", "洛基眷族"], A级: [], B级至I级: [], 备注: "可根据剧情调整" },
             战争游戏: { 状态: "未开始", 参战眷族: [], 形式: "", 赌注: "", 举办时间: "", 结束时间: "", 结果: "", 备注: "" },
             下次更新: "第1日 12:00"
         },

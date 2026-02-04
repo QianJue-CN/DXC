@@ -12,8 +12,8 @@ export interface StoryPlan {
 
 export interface StoryActivationEvent {
   事件: string;
-  激活时间: string;
-  激活条件: string;
+  激活时间?: string;
+  激活条件?: string;
 }
 
 export interface StoryState {
@@ -29,12 +29,17 @@ export interface Contract {
   id: string;
   名称: string;
   描述: string;
-  状态: string;
+  状态: 'active' | 'completed' | 'failed' | 'expired' | string;
   条款: string;
+  开始时间?: string;
+  结束时间?: string;
+  结束条件?: string;
+  违约代价?: string;
+  备注?: string;
 }
 
 export interface TaskLog {
-  时间戳: string;
+  时间戳?: string;
   内容: string;
 }
 
