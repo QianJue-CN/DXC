@@ -1,13 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Screen, GameState } from './types';
 import { Home } from './components/Home';
 import { GameInterface } from './components/GameInterface';
 import { CharacterCreation } from './components/CharacterCreation';
+import { migrateLocalStorageSaves } from './utils/saveStore';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.HOME);
   const [loadedState, setLoadedState] = useState<GameState | undefined>(undefined);
+
+  useEffect(() => {
+    void migrateLocalStorageSaves();
+  }, []);
 
   const startGame = (savedState?: GameState) => {
     if (savedState) {

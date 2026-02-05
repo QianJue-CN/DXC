@@ -1,15 +1,17 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Settings as SettingsIcon, LogOut, Save, User, ArrowLeft, ChevronRight, HardDrive, Eye, Cpu, Globe, Brain, Zap, Search, RefreshCw, Download, Plus, Trash2, ToggleLeft, ToggleRight, Edit2, Check, Upload, Database, FileJson, History, FileUp, FileDown, Folder, LayoutList, List, Copy, Code, Clock, ArrowUp, ArrowDown, EyeOff, Radio, Crown, Type, Sword, Server, AlertTriangle, MousePointer2, Activity, Shield } from 'lucide-react';
+import { X, Settings as SettingsIcon, LogOut, Save, User, ArrowLeft, ChevronRight, HardDrive, Eye, Cpu, Globe, Brain, Zap, Search, RefreshCw, Download, Plus, Trash2, ToggleLeft, ToggleRight, Edit2, Check, Upload, Database, FileJson, History, FileUp, FileDown, Folder, LayoutList, List, Copy, Code, Clock, ArrowUp, ArrowDown, EyeOff, Radio, Crown, Type, Sword, Server, AlertTriangle, MousePointer2, Activity, Shield, Cloud } from 'lucide-react';
 import { AppSettings, GameState, SaveSlot, PromptModule, PromptUsage, GlobalAISettings } from '../../../types';
 import { DEFAULT_PROMPT_MODULES, assembleFullPrompt } from '../../../utils/ai';
 import { DEFAULT_SETTINGS } from '../../../hooks/useAppSettings';
 import { P5Dropdown } from '../../ui/P5Dropdown';
 import { GAME_SCHEMA_DOCS } from './schemaDocs';
+import { clearAllSaves, deleteSaveByKey, estimateSaveSize, listSaveRecords } from '../../../utils/saveStore';
 
 // Sub-components
 import { SettingsAIServices } from './settings/SettingsAIServices';
 import { SettingsContext } from './settings/SettingsContext';
+import { SyncSettingsModal } from './SyncSettingsModal';
 
 interface MenuButtonProps {
     icon: React.ReactNode;
@@ -53,7 +55,7 @@ interface SettingsModalProps {
   initialView?: SettingsView;
 }
 
-type SettingsView = 'MAIN' | 'PROMPTS' | 'VISUALS' | 'DATA' | 'AI_SERVICES' | 'VARIABLES' | 'MEMORY' | 'SCHEMA' | 'AI_CONTEXT' | 'STORAGE' | 'FULL_LOGS' | 'LIBRARY';
+type SettingsView = 'MAIN' | 'PROMPTS' | 'VISUALS' | 'DATA' | 'AI_SERVICES' | 'VARIABLES' | 'MEMORY' | 'SCHEMA' | 'AI_CONTEXT' | 'STORAGE' | 'FULL_LOGS' | 'LIBRARY' | 'SYNC';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ 
   isOpen, 
@@ -88,7 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [autoSlots, setAutoSlots] = useState<SaveSlot[]>([]);
 
   // Storage Management State
-  const [storageItems, setStorageItems] = useState<{key: string, size: number, label: string, type: string, details?: string[]}[]>([]);
+  const [storageItems, setStorageItems] = useState<{key: string, size: number, label: string, type: string, details?: string[], origin?: 'local' | 'idb'}[]>([]);
   const [storageSummary, setStorageSummary] = useState<{ total: number; cache: number; saves: number; settings: number; api: number }>({
       total: 0,
       cache: 0,
@@ -124,36 +126,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [isOpen, initialView]);
 
   const loadSaveSlots = () => {
-      // Manual Slots
-      const manual: SaveSlot[] = [];
-      for(let i=1; i<=3; i++) {
-          const raw = localStorage.getItem(`danmachi_save_manual_${i}`);
-          if(raw) {
-              try {
-                  const data = JSON.parse(raw);
-                  manual.push({ id: i, type: 'MANUAL', timestamp: data.timestamp, summary: data.summary, data: data.data });
-              } catch(e) {}
-          }
-      }
-      setSaveSlots(manual);
-
-      // Auto Slots
-      const auto: SaveSlot[] = [];
-      for(let i=1; i<=3; i++) {
-          const raw = localStorage.getItem(`danmachi_save_auto_${i}`);
-          if(raw) {
-              try {
-                  const data = JSON.parse(raw);
-                  auto.push({ id: `auto_${i}`, type: 'AUTO', timestamp: data.timestamp, summary: data.summary, data: data.data });
-              } catch(e) {}
-          }
-      }
-      auto.sort((a,b) => b.timestamp - a.timestamp);
-      setAutoSlots(auto);
+      void (async () => {
+          const records = await listSaveRecords();
+          const manual = records
+              .filter(record => record.save?.type === 'MANUAL')
+              .map(record => record.save);
+          manual.sort((a, b) => Number(a.id) - Number(b.id));
+          const auto = records
+              .filter(record => record.save?.type === 'AUTO')
+              .map(record => record.save);
+          auto.sort((a, b) => b.timestamp - a.timestamp);
+          setSaveSlots(manual);
+          setAutoSlots(auto);
+      })();
   };
 
-  const scanStorage = () => {
-      const items: {key: string, size: number, label: string, type: string, details?: string[]}[] = [];
+  const scanStorage = async () => {
+      const items: {key: string, size: number, label: string, type: string, details?: string[], origin?: 'local' | 'idb'}[] = [];
       const summary = { total: 0, cache: 0, saves: 0, settings: 0, api: 0 };
       for(let i=0; i<localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -179,34 +168,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       details.push('API设置: ' + formatBytes(apiSize));
                       summary.api += apiSize;
                   } catch (e) {}
-              } else if (key.includes('save_auto')) {
-                  label = `自动存档 (Auto Save ${key.split('_').pop()})`;
-                  type = 'SAVE_AUTO';
-              } else if (key.includes('save_manual')) {
-                  label = `手动存档 (Manual Save ${key.split('_').pop()})`;
-                  type = 'SAVE_MANUAL';
               }
 
-              if (type === 'SAVE_AUTO' || type === 'SAVE_MANUAL') {
-                  try {
-                      const parsed = JSON.parse(value);
-                      const state = parsed?.data || parsed;
-                      const avatar = state?.角色?.头像;
-                      const name = state?.角色?.姓名;
-                      const level = state?.角色?.等级;
-                      if (name) details.push('角色: ' + name);
-                      if (level !== undefined) details.push('等级: ' + level);
-                      details.push('头像: ' + (avatar ? '已保存' : '无'));
-                  } catch (e) {}
-              }
-
-              items.push({ key, size, label, type, details: details.length > 0 ? details : undefined });
+              items.push({ key, size, label, type, details: details.length > 0 ? details : undefined, origin: 'local' });
               summary.total += size;
               if (type === 'CACHE') summary.cache += size;
               if (type === 'SETTINGS') summary.settings += size;
-              if (type === 'SAVE_AUTO' || type === 'SAVE_MANUAL') summary.saves += size;
           }
       }
+
+      const records = await listSaveRecords();
+      for (const record of records) {
+          const save = record.save;
+          if (!save) continue;
+          const size = estimateSaveSize(save);
+          const type = save.type === 'AUTO' ? 'SAVE_AUTO' : 'SAVE_MANUAL';
+          const label = save.type === 'AUTO'
+              ? `自动存档 (Auto Save ${String(save.id).replace('auto_', '')})`
+              : `手动存档 (Manual Save ${save.id})`;
+          const details: string[] = [];
+          const state = save.data;
+          const avatar = state?.角色?.头像;
+          const name = state?.角色?.姓名;
+          const level = state?.角色?.等级;
+          if (name) details.push('角色: ' + name);
+          if (level !== undefined) details.push('等级: ' + level);
+          details.push('头像: ' + (avatar ? '已保存' : '无'));
+
+          items.push({ key: record.key, size, label, type, details, origin: 'idb' });
+          summary.total += size;
+          summary.saves += size;
+      }
+
       // Sort by type then key
       items.sort((a, b) => a.type.localeCompare(b.type) || a.key.localeCompare(b.key));
       setStorageItems(items);
@@ -215,7 +208,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   useEffect(() => {
       if (currentView === 'STORAGE') {
-          scanStorage();
+          void scanStorage();
           refreshContextStats();
       }
   }, [currentView]);
@@ -435,11 +428,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
   };
 
-  const deleteStorageItem = (key: string) => {
+  const deleteStorageItem = (key: string, origin?: 'local' | 'idb') => {
       if (confirm(`确定要删除 ${key} 吗？此操作无法撤销。`)) {
+          if (origin === 'idb') {
+              void (async () => {
+                  await deleteSaveByKey(key);
+                  setTimeout(() => void scanStorage(), 50);
+              })();
+              return;
+          }
           localStorage.removeItem(key);
           // Manually update the list by rescanning to ensure state sync
-          setTimeout(scanStorage, 50); 
+          setTimeout(() => void scanStorage(), 50); 
       }
   };
 
@@ -456,23 +456,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           }
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
-      setTimeout(scanStorage, 50);
+      setTimeout(() => void scanStorage(), 50);
   };
 
   const clearSaves = () => {
       if (!confirm("确定要清除所有存档吗？此操作不可撤销。")) return;
-      const keysToRemove: string[] = [];
-      for(let i=0; i<localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.includes('save_auto') || key.includes('save_manual'))) {
-              keysToRemove.push(key);
-          }
-      }
-      keysToRemove.forEach(k => localStorage.removeItem(k));
-      setTimeout(() => {
-          loadSaveSlots();
-          scanStorage();
-      }, 50);
+      void (async () => {
+          await clearAllSaves();
+          setTimeout(() => {
+              loadSaveSlots();
+              void scanStorage();
+          }, 50);
+      })();
   };
 
   const restoreDefaultPrompts = () => {
@@ -505,6 +500,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }
           }
           keysToRemove.forEach(k => localStorage.removeItem(k));
+          void clearAllSaves();
           if (keepApi && preservedApi) {
               const next = buildSettingsWithApi(preservedApi);
               localStorage.setItem('danmachi_settings', JSON.stringify(next));
@@ -582,6 +578,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             color="border-slate-600 hover:bg-slate-800 hover:text-white text-black"
         />
         <MenuButton 
+            icon={<Cloud />} 
+            label="云同步" 
+            subLabel="跨设备存档同步"
+            onClick={() => setCurrentView('SYNC')} 
+            color="border-sky-500 hover:bg-sky-600 hover:text-white text-black"
+        />
+        <MenuButton 
             icon={<HardDrive />} 
             label="存档管理" 
             subLabel="保存 / 读取 / 导出"
@@ -631,7 +634,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <h4 className="font-bold text-sm uppercase text-zinc-700">存储与上下文概览</h4>
                       </div>
                       <button
-                          onClick={() => { scanStorage(); refreshContextStats(); }}
+                          onClick={() => { void scanStorage(); refreshContextStats(); }}
                           className="text-xs font-mono text-blue-600 hover:text-blue-800"
                       >
                           刷新
@@ -713,7 +716,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                           <div className="text-[10px] text-zinc-500 mt-1">{item.details.join(' | ')}</div>
                                       )}
                                   </div>
-                                  <button onClick={() => deleteStorageItem(item.key)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="删除"><Trash2 size={16} /></button>
+                                  <button onClick={() => deleteStorageItem(item.key, item.origin)} className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="删除"><Trash2 size={16} /></button>
                               </div>
                           ))}
                       </div>
@@ -940,6 +943,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       </div>
   );
 
+  const renderSyncView = () => (
+      <div className="space-y-6 animate-in slide-in-from-right-8 duration-300 overflow-y-auto custom-scrollbar p-1">
+          <SectionHeader title="云同步设置" icon={<Cloud />} />
+          <SyncSettingsModal
+              syncConfig={formData.syncConfig}
+              onUpdate={(next) => setFormData(prev => ({ ...prev, syncConfig: next }))}
+          />
+      </div>
+  );
+
   const renderDataView = () => (
     <div className="space-y-6 animate-in slide-in-from-right-8 duration-300 overflow-y-auto custom-scrollbar pb-10">
         <SectionHeader title="存档管理" icon={<HardDrive />} />
@@ -962,7 +975,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                          <div key={id} className="flex items-center gap-2 bg-white border border-zinc-300 p-4 shadow-sm hover:border-black transition-colors">
                              <div className="font-display text-xl w-8 text-zinc-400">{id}</div>
                              <div className="flex-1 min-w-0">{slot ? ( <><div className="font-bold text-sm truncate">{slot.summary}</div><div className="text-xs text-zinc-400">{new Date(slot.timestamp).toLocaleString()}</div></> ) : ( <div className="text-zinc-300 italic">空槽位</div> )}</div>
-                             <button onClick={() => { onSaveGame(id); loadSaveSlots(); }} className="bg-black text-white px-3 py-1 text-xs font-bold uppercase hover:bg-green-600">保存</button>
+                             <button onClick={() => { onSaveGame(id); setTimeout(loadSaveSlots, 100); }} className="bg-black text-white px-3 py-1 text-xs font-bold uppercase hover:bg-green-600">保存</button>
                              {slot && ( <button onClick={() => { onLoadGame(id); onClose(); }} className="bg-white border border-black text-black px-3 py-1 text-xs font-bold uppercase hover:bg-blue-600 hover:text-white">读取</button> )}
                          </div>
                      );
@@ -1473,6 +1486,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {currentView === 'PROMPTS' && renderPromptsView()}
                 {currentView === 'VISUALS' && renderVisualsView()}
                 {currentView === 'DATA' && renderDataView()}
+                {currentView === 'SYNC' && renderSyncView()}
                 {currentView === 'STORAGE' && renderStorageView()}
                 {currentView === 'AI_SERVICES' && (
                     <SettingsAIServices 
@@ -1515,6 +1529,3 @@ const SectionHeader = ({ title, icon }: any) => (
         <h3 className="text-2xl md:text-3xl font-display uppercase italic text-black">{title}</h3>
     </div>
 );
-
-
-

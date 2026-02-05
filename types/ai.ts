@@ -1,4 +1,6 @@
 
+import type { SyncConfig } from './sync';
+
 export type AIProvider = 'gemini' | 'openai' | 'deepseek' | 'custom';
 
 export interface AIEndpointConfig {
@@ -147,6 +149,7 @@ export interface AppSettings {
   memoryConfig: MemoryConfig;
   contextConfig: ContextConfig;
   writingConfig: WritingConfig;
+  syncConfig: SyncConfig;
 }
 
 // --- Tavern Command Protocol ---

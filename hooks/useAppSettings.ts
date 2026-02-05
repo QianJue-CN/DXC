@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { AppSettings, ContextConfig, ContextModuleConfig } from '../types';
 import { DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG } from '../utils/ai';
+import { getDefaultSyncConfig, normalizeSyncConfig } from '../utils/sync';
 
 const DEFAULT_CONTEXT_MODULES: ContextModuleConfig[] = [
     { id: 'm_sys', type: 'SYSTEM_PROMPTS', name: '系统核心设定', enabled: true, order: 0, params: {} },
@@ -58,7 +59,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
         requiredWordCount: 800,
         enableNarrativePerspective: true,
         narrativePerspective: 'third',
-    }
+    },
+    syncConfig: getDefaultSyncConfig()
 };
 
 export const useAppSettings = () => {
@@ -127,12 +129,14 @@ export const useAppSettings = () => {
                   };
               }
 
+              const mergedSyncConfig = normalizeSyncConfig(parsed.syncConfig);
               setSettings({ 
                   ...DEFAULT_SETTINGS, 
                   ...parsed,
                   promptModules: mergedPromptModules,
                   contextConfig: contextConfig,
-                  aiConfig: mergedAiConfig
+                  aiConfig: mergedAiConfig,
+                  syncConfig: mergedSyncConfig
               });
           } catch(e) {
               console.error('Failed to load settings', e);

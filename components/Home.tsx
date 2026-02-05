@@ -5,6 +5,7 @@ import { GameState, SaveSlot } from '../types';
 import { SettingsModal } from './game/modals/SettingsModal';
 import { createNewGameState } from '../utils/dataMapper';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { getSaveBySlotId, listSaveRecords } from '../utils/saveStore';
 
 // Decoupled Components
 import { HeroBackground } from './home/HeroBackground';
@@ -43,46 +44,36 @@ export const Home: React.FC<HomeProps> = ({ onStart, onNewGame }) => {
   };
 
   const loadSaveSlots = () => {
-    const manual: SaveSlot[] = [];
-    for (let i = 1; i <= 3; i++) {
-        const raw = localStorage.getItem(`danmachi_save_manual_${i}`);
-        if (!raw) continue;
-        try {
-            const data = JSON.parse(raw);
-            manual.push({ id: i, type: 'MANUAL', timestamp: data.timestamp, summary: data.summary, data: data.data });
-        } catch {}
-    }
-    setSaveSlots(manual);
-
-    const auto: SaveSlot[] = [];
-    for (let i = 1; i <= 3; i++) {
-        const raw = localStorage.getItem(`danmachi_save_auto_${i}`);
-        if (!raw) continue;
-        try {
-            const data = JSON.parse(raw);
-            auto.push({ id: `auto_${i}`, type: 'AUTO', timestamp: data.timestamp, summary: data.summary, data: data.data });
-        } catch {}
-    }
-    auto.sort((a, b) => b.timestamp - a.timestamp);
-    setAutoSlots(auto);
+    void (async () => {
+        const records = await listSaveRecords();
+        const manual = records
+            .filter(record => record.save?.type === 'MANUAL')
+            .map(record => record.save);
+        manual.sort((a, b) => Number(a.id) - Number(b.id));
+        const auto = records
+            .filter(record => record.save?.type === 'AUTO')
+            .map(record => record.save);
+        auto.sort((a, b) => b.timestamp - a.timestamp);
+        setSaveSlots(manual);
+        setAutoSlots(auto);
+    })();
   };
 
   const handleLoadGame = (slotId: number | string) => {
-    const isAuto = String(slotId).startsWith('auto');
-    const targetKey = isAuto ? `danmachi_save_${slotId}` : `danmachi_save_manual_${slotId}`;
-    const savedData = localStorage.getItem(targetKey);
-    if (!savedData) {
-        alert("未找到该存档。");
-        return;
-    }
-    try {
-        const parsedData = JSON.parse(savedData);
-        const stateToLoad = parsedData.data ? parsedData.data : parsedData;
-        setIsLoadModalOpen(false);
-        onStart(stateToLoad);
-    } catch (e) {
-        alert("存档损坏 / Save Data Corrupted");
-    }
+    void (async () => {
+        const saved = await getSaveBySlotId(slotId);
+        if (!saved) {
+            alert("未找到该存档。");
+            return;
+        }
+        try {
+            const stateToLoad = saved.data ? saved.data : saved;
+            setIsLoadModalOpen(false);
+            onStart(stateToLoad);
+        } catch (e) {
+            alert("存档损坏 / Save Data Corrupted");
+        }
+    })();
   };
 
   const handleOpenLoadModal = () => {
@@ -211,4 +202,3 @@ export const Home: React.FC<HomeProps> = ({ onStart, onNewGame }) => {
     </div>
   );
 };
-

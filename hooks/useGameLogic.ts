@@ -1,11 +1,13 @@
 ﻿
 import { useState, useEffect, useRef } from 'react';
-import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, StoryState } from '../types';
+import { GameState, AppSettings, LogEntry, InventoryItem, TavernCommand, ActionOption, Confidant, MemorySystem, MemoryEntry, SaveSlot, Task, ContextModuleConfig, StoryState, SyncConfig } from '../types';
 import { createNewGameState } from '../utils/dataMapper';
 import { computeMaxCarry, computeMaxHp, computeMaxMind, computeMaxStamina } from '../utils/characterMath';
 import { generateDungeonMasterResponse, generateWorldInfoResponse, DEFAULT_PROMPT_MODULES, DEFAULT_MEMORY_CONFIG, dispatchAIRequest, generateMemorySummary, extractThinkingBlocks, parseAIResponseText, mergeThinkingSegments, resolveServiceConfig, buildNpcSimulationSnapshots, buildIntersectionHintBlock, generateIntersectionPrecheck, generateNpcBacklineSimulation, extractIntersectionBlock, hasNpcSyncApiKey } from '../utils/ai';
 import { P_MEM_S2M, P_MEM_M2L } from '../prompts';
 import { Difficulty } from '../types/enums';
+import { createSyncService, getDefaultSyncConfig, normalizeSyncConfig } from '../utils/sync';
+import { buildSaveKey, getSaveBySlotId, setSaveByKey } from '../utils/saveStore';
 
 type CommandKind = 'EQUIP' | 'UNEQUIP' | 'USE' | 'TOGGLE';
 
@@ -103,7 +105,8 @@ const DEFAULT_SETTINGS: AppSettings = {
         requiredWordCount: 800,
         enableNarrativePerspective: true,
         narrativePerspective: 'third',
-    }
+    },
+    syncConfig: getDefaultSyncConfig()
 };
 
 const generateNextId = (prefix: string, list: any[]): string => {
@@ -397,6 +400,9 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
     const pendingNpcBacklineUpdateRef = useRef<{ state: GameState; intersectionBlock?: string | null } | null>(null);
     const lastNpcBacklineStatusRef = useRef<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const syncConfigRef = useRef<SyncConfig>(DEFAULT_SETTINGS.syncConfig);
+    const syncInFlightRef = useRef(false);
+    const lastSyncAtRef = useRef(0);
 
     useEffect(() => {
         const savedSettings = localStorage.getItem('danmachi_settings');
@@ -448,10 +454,21 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                         }
                     };
                 }
-                setSettings({ ...DEFAULT_SETTINGS, ...parsed, promptModules: mergedPromptModules, aiConfig: mergedAiConfig });
+                const mergedSyncConfig = normalizeSyncConfig(parsed.syncConfig);
+                setSettings({
+                    ...DEFAULT_SETTINGS,
+                    ...parsed,
+                    promptModules: mergedPromptModules,
+                    aiConfig: mergedAiConfig,
+                    syncConfig: mergedSyncConfig
+                });
             } catch(e) { console.warn("Settings corrupted"); }
         }
     }, []);
+
+    useEffect(() => {
+        syncConfigRef.current = settings.syncConfig;
+    }, [settings.syncConfig]);
 
     useEffect(() => {
         if (!gameState.游戏难度) return;
@@ -492,6 +509,30 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         });
     }, [gameState.游戏难度]);
 
+    const runSync = async (configOverride?: SyncConfig) => {
+        const config = normalizeSyncConfig(configOverride || syncConfigRef.current);
+        if (!config.enabled || config.provider === 'none') return null;
+        if (syncInFlightRef.current) return null;
+        syncInFlightRef.current = true;
+        try {
+            const service = createSyncService(config);
+            if (!service) return null;
+            return await service.sync();
+        } finally {
+            syncInFlightRef.current = false;
+        }
+    };
+
+    const maybeAutoSync = async (reason: 'auto' | 'manual') => {
+        const config = normalizeSyncConfig(syncConfigRef.current);
+        if (!config.enabled || !config.autoSync) return;
+        const intervalMs = Math.max(0, config.syncInterval) * 60_000;
+        const now = Date.now();
+        if (intervalMs > 0 && now - lastSyncAtRef.current < intervalMs) return;
+        const result = await runSync(config);
+        if (result && result.status !== 'error') lastSyncAtRef.current = now;
+    };
+
     useEffect(() => {
         if (gameState.回合数 > 1) {
             const slotNum = ((gameState.回合数 - 1) % 3) + 1;
@@ -505,14 +546,17 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
                 data: optimizedState,
                 version: '3.0'
             };
-            try {
-                localStorage.setItem(saveKey, JSON.stringify(saveData));
-            } catch (e) { console.error("Auto-save quota exceeded", e); }
+            void (async () => {
+                try {
+                    await setSaveByKey(saveKey, saveData);
+                    void maybeAutoSync('auto');
+                } catch (e) { console.error("Auto-save failed", e); }
+            })();
         }
     }, [gameState.回合数, gameState.当前地点]);
 
     const manualSave = (slotId: number | string) => {
-        const saveKey = `danmachi_save_manual_${slotId}`;
+        const saveKey = buildSaveKey(slotId);
         const optimizedState = createStorageSnapshot(gameState);
         const saveData: SaveSlot = {
             id: slotId,
@@ -522,24 +566,25 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
             data: optimizedState,
             version: '3.0'
         };
-        try {
-            localStorage.setItem(saveKey, JSON.stringify(saveData));
-            console.log(`Saved to ${saveKey}`);
-        } catch (e) { alert("保存失败：本地存储空间不足"); }
+        void (async () => {
+            try {
+                await setSaveByKey(saveKey, saveData);
+                console.log(`Saved to ${saveKey}`);
+                void maybeAutoSync('manual');
+            } catch (e) { alert("保存失败：本地存储空间不足"); }
+        })();
     };
 
     const loadGame = (slotId: number | string) => {
-        let targetKey = `danmachi_save_manual_${slotId}`;
-        if (String(slotId).startsWith('auto')) targetKey = `danmachi_save_${slotId}`;
-        const raw = localStorage.getItem(targetKey);
-        if (raw) {
+        void (async () => {
+            const saved = await getSaveBySlotId(slotId);
+            if (!saved) return;
             try {
-                const parsed = JSON.parse(raw);
-                const state = parsed.data || parsed;
+                const state = saved.data || saved;
                 const migrated = migrateStoryState(migrateNpcActionsToTracking(state));
                 setGameState(ensureDerivedStats(migrated));
             } catch(e) { console.error("Load failed", e); }
-        }
+        })();
     };
 
     const updateStateByPath = (state: any, path: string, value: any, action: string): { success: boolean, error?: string } => {
@@ -1642,10 +1687,6 @@ export const useGameLogic = (initialState?: GameState, onExitCb?: () => void) =>
         handleReroll, handleEditLog, handleDeleteLog, handleEditUserLog, handleUpdateLogText, handleUserRewrite, handleDeleteTask, handleUpdateTaskStatus, handleUpdateStory, handleCompleteStoryStage,
         intersectionConfirmState, confirmIntersectionSend, cancelIntersectionConfirm,
         handleForceNpcBacklineUpdate,
+        syncNow: runSync,
     };
 };
-
-
-
-
-

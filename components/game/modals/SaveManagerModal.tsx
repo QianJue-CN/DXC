@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { X, HardDrive, Clock, FileDown, FileUp, Database } from 'lucide-react';
 import { GameState, SaveSlot } from '../../../types';
+import { listSaveRecords } from '../../../utils/saveStore';
 
 interface SaveManagerModalProps {
   isOpen: boolean;
@@ -30,30 +31,19 @@ export const SaveManagerModal: React.FC<SaveManagerModalProps> = ({
   }, [isOpen]);
 
   const loadSaveSlots = () => {
-    const manual: SaveSlot[] = [];
-    for (let i = 1; i <= 3; i++) {
-      const raw = localStorage.getItem(`danmachi_save_manual_${i}`);
-      if (raw) {
-        try {
-          const data = JSON.parse(raw);
-          manual.push({ id: i, type: 'MANUAL', timestamp: data.timestamp, summary: data.summary, data: data.data });
-        } catch (e) {}
-      }
-    }
-    setSaveSlots(manual);
-
-    const auto: SaveSlot[] = [];
-    for (let i = 1; i <= 3; i++) {
-      const raw = localStorage.getItem(`danmachi_save_auto_${i}`);
-      if (raw) {
-        try {
-          const data = JSON.parse(raw);
-          auto.push({ id: `auto_${i}`, type: 'AUTO', timestamp: data.timestamp, summary: data.summary, data: data.data });
-        } catch (e) {}
-      }
-    }
-    auto.sort((a, b) => b.timestamp - a.timestamp);
-    setAutoSlots(auto);
+    void (async () => {
+      const records = await listSaveRecords();
+      const manual = records
+        .filter(record => record.save?.type === 'MANUAL')
+        .map(record => record.save);
+      manual.sort((a, b) => Number(a.id) - Number(b.id));
+      const auto = records
+        .filter(record => record.save?.type === 'AUTO')
+        .map(record => record.save);
+      auto.sort((a, b) => b.timestamp - a.timestamp);
+      setSaveSlots(manual);
+      setAutoSlots(auto);
+    })();
   };
 
   const handleExportSave = () => {
@@ -174,7 +164,7 @@ export const SaveManagerModal: React.FC<SaveManagerModalProps> = ({
                         <div className="text-zinc-300 italic">空存档</div>
                       )}
                     </div>
-                    <button onClick={() => { onSaveGame(id); loadSaveSlots(); }} className="bg-black text-white px-3 py-1 text-xs font-bold uppercase hover:bg-green-600">保存</button>
+                    <button onClick={() => { onSaveGame(id); setTimeout(loadSaveSlots, 100); }} className="bg-black text-white px-3 py-1 text-xs font-bold uppercase hover:bg-green-600">保存</button>
                     {slot && (
                       <button onClick={() => { onLoadGame(id); onClose(); }} className="bg-white border border-black text-black px-3 py-1 text-xs font-bold uppercase hover:bg-blue-600 hover:text-white">读取</button>
                     )}
@@ -207,6 +197,3 @@ export const SaveManagerModal: React.FC<SaveManagerModalProps> = ({
     </div>
   );
 };
-
-
-
